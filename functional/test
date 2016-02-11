@@ -1,0 +1,34 @@
+#!/bin/bash -e
+
+CDIR=$(cd `dirname $0` && pwd)
+USER_ID=${SUDO_UID:-$(id -u)}
+USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
+HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
+
+export GOROOT=${HOME}/go
+export PATH=${PATH}:${HOME}/go/bin
+
+if [[ ! $(go version 2>/dev/null) ]]; then
+  if [ ! -f ${HOME}/go1.5.3.linux-amd64.tar.gz ]; then
+    wget https://storage.googleapis.com/golang/go1.5.3.linux-amd64.tar.gz -P ${HOME}
+  fi
+  tar -xf ${HOME}/go1.5.3.linux-amd64.tar.gz -C ${HOME}
+fi
+
+if [ ! -S "$SSH_AUTH_SOCK" ]; then
+  eval $(ssh-agent)
+fi
+
+chmod 600 ${CDIR}/fixtures/id_rsa
+ssh-add ${CDIR}/fixtures/id_rsa
+sudo systemctl stop fleet || true
+
+if [ ! -x "${CDIR}/../bin/fleetd" ] || [ ! -x "${CDIR}/../bin/fleetctl" ]; then
+  ${CDIR}/../build
+fi
+
+cd ${CDIR}/../
+VERSION=$(git describe --dirty)
+source functional/test-env
+eval $(go env)
+go test github.com/coreos/fleet/functional -v
