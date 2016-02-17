@@ -10,6 +10,8 @@ export PATH=${PATH}:${HOME}/go/bin
 
 if [[ ! $(go version 2>/dev/null) ]]; then
   if [ ! -f ${HOME}/go1.5.3.linux-amd64.tar.gz ]; then
+    # Remove unfinished archive when you press Ctrl+C
+    trap "rm -f ${HOME}/go1.5.3.linux-amd64.tar.gz" EXIT
     wget https://storage.googleapis.com/golang/go1.5.3.linux-amd64.tar.gz -P ${HOME}
   fi
   tar -xf ${HOME}/go1.5.3.linux-amd64.tar.gz -C ${HOME}
