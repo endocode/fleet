@@ -30,7 +30,7 @@ if [ ! -x "${CDIR}/../bin/fleetd" ] || [ ! -x "${CDIR}/../bin/fleetctl" ]; then
 fi
 
 cd ${CDIR}/../
-VERSION=$(git describe --dirty)
+export VERSION=$(git describe --dirty)
 source functional/test-env
 eval $(go env)
-go test github.com/coreos/fleet/functional -v
+go test github.com/coreos/fleet/functional -ldflags "${GLDFLAGS}" -v
