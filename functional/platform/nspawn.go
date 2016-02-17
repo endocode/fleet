@@ -350,7 +350,7 @@ UseDNS no
 	[Service]
 	Type=oneshot
 	RemainAfterExit=yes
-	ExecStart=/usr/bin/ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N "" -b 768`
+	ExecStart=/usr/bin/ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N "" -b 1024`
 	if err = ioutil.WriteFile(path.Join(fsdir, "/etc/systemd/system/sshd-keygen.service"), []byte(sshd_keygen), 0644); err != nil {
 		log.Printf("Failed writing sshd-keygen.service: %v", err)
 		return
