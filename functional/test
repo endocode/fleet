@@ -23,7 +23,7 @@ fi
 
 if [ ! -x "${CDIR}/../bin/fleetd" ] || \
    [ ! -x "${CDIR}/../bin/fleetctl" ] || \
-   [ ${CDIR}/../bin/fleetctl | grep -q "$VERSION" ]; then
+   [ ! $(${CDIR}/../bin/fleetctl | grep "$VERSION") ]; then
   ${CDIR}/../build
 fi
 
