@@ -401,6 +401,7 @@ UseDNS no
 			return
 		default:
 		}
+		log.Printf("Dialing machine: %s", addr)
 		c, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
 		if err == nil {
 			c.Close()

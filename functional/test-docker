@@ -2,6 +2,9 @@
 
 CDIR=$(cd `dirname $0` && pwd)
 
+cd ${CDIR}/../
+export VERSION=$(git describe --dirty)
+
 if [ ! -S "$SSH_AUTH_SOCK" ]; then
   eval $(ssh-agent)
 fi
@@ -10,7 +13,9 @@ chmod 0600 ${CDIR}/fixtures/id_rsa
 ssh-add ${CDIR}/fixtures/id_rsa
 sudo systemctl stop fleet || true
 
-if [ ! -x "${CDIR}/../bin/fleetd" ] || [ ! -x "${CDIR}/../bin/fleetctl" ]; then
+if [ ! -x "${CDIR}/../bin/fleetd" ] || \
+   [ ! -x "${CDIR}/../bin/fleetctl" ] || \
+   [ ${CDIR}/../bin/fleetctl | grep -q "$VERSION" ]; then
   ${CDIR}/../build-docker
 fi
 
@@ -22,6 +27,7 @@ docker run --rm -v ${CDIR}/../:/opt/fleet \
   -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK \
   -v /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket \
   -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK \
+  -e VERSION=$VERSION
   --privileged \
   --net=host google/golang:1.4 /bin/bash -c "
 echo 'core:x:500:500:CoreOS Admin:/home/core:/bin/bash' >> /etc/passwd
@@ -32,9 +38,8 @@ echo -e '#!/bin/sh\n LD_LIBRARY_PATH=/opt/lib64 /opt/lib64/ld-linux-x86-64.so.2 
 echo -e '#!/bin/sh\n LD_LIBRARY_PATH=/opt/lib64 /opt/lib64/ld-linux-x86-64.so.2 /opt/bin/systemctl \$@' > /opt/systemctl
 echo -e '#!/bin/sh\n LD_LIBRARY_PATH=/opt/lib64 /opt/lib64/ld-linux-x86-64.so.2 /opt/bin/machinectl \$@' > /opt/machinectl
 chmod +x /opt/brctl /opt/systemd-nspawn /opt/systemctl /opt/machinectl
-export VERSION=\$(git describe --dirty)
 source functional/test-env
 eval \$(go env)
 export PATH=\"\${PATH}:/opt:/opt/bin:/opt/sbin\"
-go test github.com/coreos/fleet/functional -v
+go test github.com/coreos/fleet/functional -ldflags \"\${GLDFLAGS}\" -v
 "
