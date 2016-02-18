@@ -6,16 +6,9 @@ USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
 HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
 
 export GOROOT=${HOME}/go
-export PATH=${PATH}:${HOME}/go/bin
+export PATH=${HOME}/go/bin:${CDIR}/../bin:${PATH}
 
-if [[ ! $(go version 2>/dev/null) ]]; then
-  if [ ! -f ${HOME}/go1.5.3.linux-amd64.tar.gz ]; then
-    # Remove unfinished archive when you press Ctrl+C
-    trap "rm -f ${HOME}/go1.5.3.linux-amd64.tar.gz" EXIT
-    wget https://storage.googleapis.com/golang/go1.5.3.linux-amd64.tar.gz -P ${HOME}
-  fi
-  tar -xf ${HOME}/go1.5.3.linux-amd64.tar.gz -C ${HOME}
-fi
+which fleetctl
 
 if [ ! -S "$SSH_AUTH_SOCK" ]; then
   eval $(ssh-agent)
