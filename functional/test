@@ -8,8 +8,6 @@ HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
 export GOROOT=${HOME}/go
 export PATH=${HOME}/go/bin:${CDIR}/../bin:${PATH}
 
-which fleetctl
-
 if [ ! -S "$SSH_AUTH_SOCK" ]; then
   eval $(ssh-agent)
 fi
