@@ -108,7 +108,7 @@ func (nc *nspawnCluster) WaitForNActiveUnits(m Member, count int) (map[string][]
 	var nactive int
 	states := make(map[string][]util.UnitState)
 
-	timeout := 30 * time.Second
+	timeout := 15 * time.Second
 	alarm := time.After(timeout)
 
 	ticker := time.Tick(250 * time.Millisecond)
@@ -148,7 +148,7 @@ loop:
 
 func (nc *nspawnCluster) WaitForNMachines(m Member, count int) ([]string, error) {
 	var machines []string
-	timeout := 20 * time.Second
+	timeout := 10 * time.Second
 	alarm := time.After(timeout)
 
 	ticker := time.Tick(250 * time.Millisecond)
@@ -391,7 +391,7 @@ UseDNS no
 		return
 	}
 
-	alarm := time.After(20 * time.Second)
+	alarm := time.After(10 * time.Second)
 	addr := fmt.Sprintf("%s:%d", nm.IP(), fleetAPIPort)
 	for {
 		select {
