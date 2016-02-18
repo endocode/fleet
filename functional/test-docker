@@ -27,7 +27,7 @@ docker run --rm -v ${CDIR}/../:/opt/fleet \
   -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK \
   -v /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket \
   -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK \
-  -e VERSION=$VERSION
+  -e VERSION=$VERSION \
   --privileged \
   --net=host google/golang:1.4 /bin/bash -c "
 echo 'core:x:500:500:CoreOS Admin:/home/core:/bin/bash' >> /etc/passwd
