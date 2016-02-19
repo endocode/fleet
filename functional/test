@@ -27,6 +27,6 @@ if [ ! -x "bin/fleetd" ] || \
   ./build
 fi
 
-source functional/test-env
+source build-env
 eval $(go env)
 go test github.com/coreos/fleet/functional -ldflags "${GLDFLAGS}" -v

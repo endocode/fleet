@@ -38,7 +38,7 @@ echo -e '#!/bin/sh\n LD_LIBRARY_PATH=/opt/lib64 /opt/lib64/ld-linux-x86-64.so.2 
 echo -e '#!/bin/sh\n LD_LIBRARY_PATH=/opt/lib64 /opt/lib64/ld-linux-x86-64.so.2 /opt/bin/systemctl \$@' > /opt/systemctl
 echo -e '#!/bin/sh\n LD_LIBRARY_PATH=/opt/lib64 /opt/lib64/ld-linux-x86-64.so.2 /opt/bin/machinectl \$@' > /opt/machinectl
 chmod +x /opt/brctl /opt/systemd-nspawn /opt/systemctl /opt/machinectl
-source functional/test-env
+source build-env
 eval \$(go env)
 export PATH=\"\${PATH}:/opt:/opt/bin:/opt/sbin\"
 go test github.com/coreos/fleet/functional -ldflags \"\${GLDFLAGS}\" -v
