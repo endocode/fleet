@@ -37,10 +37,16 @@ $ sudo fleet/functional/start_etcd
 
 It will configure and start a one-member etcd cluster.
 
-Then run the functional tests:
+Then run the functional tests (script will download and unpack golang into home directory):
 
 ```sh
 $ sudo fleet/functional/test
+```
+
+You can also run functional tests using docker environment (script will user official golang docker image):
+
+```sh
+$ fleet/functional/test-docker
 ```
 
 ## Configure host environment to run Vagrant
