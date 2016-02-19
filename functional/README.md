@@ -43,12 +43,6 @@ Then run the functional tests (script will download and unpack golang into home 
 $ sudo fleet/functional/test
 ```
 
-You can also run functional tests using docker environment (script will user official golang docker image):
-
-```sh
-$ fleet/functional/test-docker
-```
-
 ## Configure host environment to run Vagrant
 
 ### Debian/Ubuntu
