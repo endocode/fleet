@@ -12,7 +12,7 @@ If the tests are aborted partway through, it's currently possible for them to le
 
 ### Run tests in Vagrant
 
-The recommended way to run the tests is to use the provided Vagrantfile, which will set up a single CoreOS instance with a one-member etcd cluster. 
+The recommended way to run the tests is to use the provided Vagrantfile, which will set up a single CoreOS instance with a one-member etcd cluster (configuration is applied using `user-data` [Cloud-Config][cloud-config] file located in this directory).
 To do so, simply run the following commands on a system with Vagrant installed (see [Vagrant configuration][configure-vagrant] section of this doc)
 
 ```sh
@@ -102,3 +102,4 @@ sudo yum install -y VirtualBox-5.0
 [test-in-vagrant]: #run-tests-in-vagrant
 [configure-vagrant]: #configure-host-environment-to-run-vagrant
 [systemd-nspawn]: https://www.freedesktop.org/software/systemd/man/systemd-nspawn.html
+[cloud-config]: https://github.com/coreos/coreos-cloudinit/blob/master/Documentation/cloud-config.md
