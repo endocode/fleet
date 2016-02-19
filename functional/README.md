@@ -67,7 +67,7 @@ sudo apt-get install -y VirtualBox-5.0
 #sudo apt-get install -y VirtualBox-4.3
 ```
 
-### Centos/Fedora
+### CentOS/Fedora
 
 **NOTE**: NFS and Vagrant doesn't work out of the box on CentOS 6.x
 
