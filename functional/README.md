@@ -10,18 +10,20 @@ Since the tests utilize [`systemd-nspawn`][systemd-nspawn], this needs to be inv
 
 If the tests are aborted partway through, it's currently possible for them to leave residual state as a result of the `systemd-nspawn` operations. This can be cleaned up using the `clean.sh` script.
 
-### run tests in vagrant
+### Run tests in Vagrant
 
-Vagrant will configure CoreOS instance with one-member etcd2 daemon.
+The recommended way to run the tests is to use the provided Vagrantfile, which will set up a single CoreOS instance with a one-member etcd cluster. 
+To do so, simply run the following commands on a system with Vagrant installed (see [Vagrant configuration][configure-vagrant] section of this doc)
 
 ```sh
 $ git clone https://github.com/coreos/fleet
 $ cd fleet/functional
-$ # Vagrantfile based on official CoreOS Vagranfile with one extra provision string
 $ ./run-in-vagrant
 ```
 
-### run tests inside other CoreOS platforms (QEMU/BareMetal/libvirt/etc)
+### Run tests inside other CoreOS platforms (QEMU/BareMetal/libvirt/etc)
+
+It's also possible to run the tests on CoreOS on other platforms. The following commands should be run *inside* the CoreOS instance.
 
 ```sh
 $ git clone https://github.com/coreos/fleet
@@ -33,16 +35,15 @@ If you didn't configure etcd2 daemon yet, just run this script:
 $ sudo fleet/functional/start_etcd
 ```
 
-It will configure and start one-member etcd2 daemon.
+It will configure and start a one-member etcd cluster.
 
 Then run the functional tests:
 
 ```sh
-$ git clone https://github.com/coreos/fleet
 $ sudo fleet/functional/test
 ```
 
-## configure environment to run Vagrant
+## Configure host environment to run Vagrant
 
 ### Debian/Ubuntu
 
@@ -93,4 +94,5 @@ sudo yum install -y VirtualBox-5.0
 ```
 
 [test-in-vagrant]: #run-tests-in-vagrant
+[configure-vagrant]: #configure-host-environment-to-run-vagrant
 [systemd-nspawn]: https://www.freedesktop.org/software/systemd/man/systemd-nspawn.html

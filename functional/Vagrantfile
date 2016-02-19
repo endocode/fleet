@@ -1,5 +1,6 @@
 # -*- mode: ruby -*-
 # # vi: set ft=ruby :
+# Vagrantfile based on official CoreOS Vagranfile https://github.com/coreos/coreos-vagrant with one extra provision string
 
 require 'fileutils'
 
