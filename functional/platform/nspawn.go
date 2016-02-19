@@ -211,10 +211,10 @@ func (nc *nspawnCluster) prepCluster() (err error) {
 		return
 	}
 
-	if !strings.Contains(stdout, "172.17.0.1/16") {
-		_, _, err = run("ip addr add 172.17.0.1/16 dev fleet0")
+	if !strings.Contains(stdout, "172.18.0.1/16") {
+		_, _, err = run("ip addr add 172.18.0.1/16 dev fleet0")
 		if err != nil {
-			log.Printf("Failed adding 172.17.0.1/16 to fleet0: %v", err)
+			log.Printf("Failed adding 172.18.0.1/16 to fleet0: %v", err)
 			return
 		}
 	}
@@ -251,7 +251,7 @@ func (nc *nspawnCluster) buildConfigDrive(dir, ip string) error {
 	}
 	defer userFile.Close()
 
-	etcd := "http://172.17.0.1:4001"
+	etcd := "http://172.18.0.1:4001"
 	return util.BuildCloudConfig(userFile, ip, etcd, nc.keyspace())
 }
 
@@ -290,7 +290,7 @@ func (nc *nspawnCluster) createMember(id string) (m Member, err error) {
 	nm := nspawnMember{
 		uuid: newMachineID(),
 		id:   id,
-		ip:   fmt.Sprintf("172.17.1.%s", id),
+		ip:   fmt.Sprintf("172.18.1.%s", id),
 	}
 	nc.members[nm.ID()] = nm
 

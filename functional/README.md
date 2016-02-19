@@ -2,7 +2,7 @@
 
 This functional test suite deploys a fleet cluster using nspawn containers, and asserts fleet is functioning properly.
 
-It shares an instance of etcd deployed on the host machine with each of the nspawn containers.
+It shares an instance of etcd deployed on the host machine with each of the nspawn containers which use `172.18.0.1/16` network, so please make sure this network does not intersect with others.
 
 It's recommended to run this in a virtual machine environment on CoreOS (e.g. using [Vagrant][test-in-vagrant]).
 
