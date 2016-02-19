@@ -9,14 +9,14 @@ if [ ! -S "$SSH_AUTH_SOCK" ]; then
   eval $(ssh-agent)
 fi
 
-chmod 0600 ${CDIR}/fixtures/id_rsa
-ssh-add ${CDIR}/fixtures/id_rsa
+chmod 0600 functional/fixtures/id_rsa
+ssh-add functional/fixtures/id_rsa
 sudo systemctl stop fleet || true
 
-if [ ! -x "${CDIR}/../bin/fleetd" ] || \
-   [ ! -x "${CDIR}/../bin/fleetctl" ] || \
-   [ ! $(${CDIR}/../bin/fleetctl | grep "$VERSION") ]; then
-  ${CDIR}/../build-docker
+if [ ! -x "bin/fleetd" ] || \
+   [ ! -x "bin/fleetctl" ] || \
+   [ ! $(bin/fleetctl | grep "$VERSION") ]; then
+  ./build-docker
 fi
 
 docker run --rm -v ${CDIR}/../:/opt/fleet \
