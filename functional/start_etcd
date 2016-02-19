@@ -20,7 +20,6 @@ if [ ! -x ${HOME}/setup-network-environment ]; then
 fi
 
 ${HOME}/setup-network-environment
-sed -i 's/DEFAULT_IPV4/COREOS_PRIVATE_IPV4/' /etc/network-environment
 source /etc/network-environment
-export COREOS_PRIVATE_IPV4=$COREOS_PRIVATE_IPV4
+export COREOS_PRIVATE_IPV4=$DEFAULT_IPV4
 coreos-cloudinit --from-file=${CDIR}/user-data
