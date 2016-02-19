@@ -1,5 +1,6 @@
 #!/bin/bash -e
 
+CDIR=$(cd `dirname $0` && pwd)
 USER_ID=${SUDO_UID:-$(id -u)}
 HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
 
@@ -18,14 +19,6 @@ if [ ! -x ${HOME}/setup-network-environment ]; then
   chmod +x ${HOME}/setup-network-environment
 fi
 
-${HOME}/setup-network-environment
-source /etc/network-environment
+${HOME}/setup-network-environment -o /etc/environment
 
-DROPIN="[Service]
-Environment='ETCD_ADVERTISE_CLIENT_URLS=http://${DEFAULT_IPV4}:2379'
-Environment='ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379,http://0.0.0.0:4001'"
-
-mkdir -p /etc/systemd/system/etcd2.service.d/
-echo "${DROPIN}" > /etc/systemd/system/etcd2.service.d/90-run-local-member.conf
-systemctl daemon-reload
-systemctl start etcd2
+coreos-cloudinit --from-file=${CDIR}/user-data

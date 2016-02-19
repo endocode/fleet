@@ -302,8 +302,6 @@ func (nc *nspawnCluster) createMember(id string) (m Member, err error) {
 
 		// minimum requirements for running systemd/coreos in a container
 		fmt.Sprintf("mkdir -p %s/usr", fsdir),
-		//fmt.Sprintf("mkdir -p %s/lib", fsdir), //ubuntu
-		//fmt.Sprintf("mkdir -p %s/lib64", fsdir), //ubuntu
 		fmt.Sprintf("cp /etc/os-release %s/etc", fsdir),
 		fmt.Sprintf("echo 'core:x:500:500:CoreOS Admin:/home/core:/bin/bash' > %s/etc/passwd", fsdir),
 		fmt.Sprintf("echo 'core:x:500:' > %s/etc/group", fsdir),
@@ -369,8 +367,6 @@ UseDNS no
 	exec := strings.Join([]string{
 		"/usr/bin/systemd-nspawn",
 		"--bind-ro=/usr",
-		//"--bind-ro=/lib", //ubuntu
-		//"--bind-ro=/lib64", //ubuntu
 		"-b",
 		"--uuid=" + nm.uuid,
 		fmt.Sprintf("-M %s%s", nc.name, nm.ID()),
