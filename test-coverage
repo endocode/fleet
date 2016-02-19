@@ -1,0 +1,14 @@
+#!/bin/sh
+
+rm -rf /tmp/cover*
+
+eval `grep TESTABLE test`
+
+for p in $TESTABLE; do
+	PKG=$p ./cover
+done
+
+for i in /tmp/cover*/coverage.html; do 
+	mv $i coverage_$(dirname $(grep '<option' $i | sed -e "s,.*\(github.*\.go\).*,\1,") | uniq | sed -e s,/,_,g).html
+done
+
