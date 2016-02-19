@@ -6,7 +6,7 @@ It shares an instance of etcd deployed on the host machine with each of the nspa
 
 It's recommended to run this in a virtual machine environment on CoreOS (e.g. using [Vagrant][test-in-vagrant]).
 
-Since the tests utilize `[systemd-nspawn]`, this needs to be invoked as sudo/root.
+Since the tests utilize [`systemd-nspawn`][systemd-nspawn], this needs to be invoked as sudo/root.
 
 If the tests are aborted partway through, it's currently possible for them to leave residual state as a result of the `systemd-nspawn` operations. This can be cleaned up using the `clean.sh` script.
 
