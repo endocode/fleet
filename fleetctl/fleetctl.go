@@ -487,7 +487,7 @@ func getUnitFile(file string) (*unit.UnitFile, error) {
 	var uf *unit.UnitFile
 	name := unitNameMangle(file)
 
-	log.Debugf("Looking up for Unit(%s) or its corresponding template", name)
+	log.Debugf("Looking for Unit(%s) or its corresponding template", name)
 
 	// Assume that the file references a local unit file on disk and
 	// attempt to load it, if it exists
