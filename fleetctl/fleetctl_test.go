@@ -181,6 +181,51 @@ func TestUnitNameMangle(t *testing.T) {
 	}
 }
 
+func TestGetBlockAttempts(t *testing.T) {
+	oldNoBlock := sharedFlags.NoBlock
+	oldBlockAttempts := sharedFlags.BlockAttempts
+	sharedFlags.NoBlock = true
+	sharedFlags.BlockAttempts = 0
+
+	if n := getBlockAttempts(); n != -1 {
+		t.Errorf("got %d, want -1", n)
+	}
+
+	sharedFlags.BlockAttempts = -1
+	if n := getBlockAttempts(); n != -1 {
+		t.Errorf("got %d, want -1", n)
+	}
+
+	sharedFlags.BlockAttempts = 9999
+	if n := getBlockAttempts(); n != -1 {
+		t.Errorf("got %d, want -1", n)
+	}
+
+	sharedFlags.NoBlock = false
+	sharedFlags.BlockAttempts = 0
+	if n := getBlockAttempts(); n != 0 {
+		t.Errorf("got %d, want 0", n)
+	}
+
+	sharedFlags.BlockAttempts = -1
+	if n := getBlockAttempts(); n != 0 {
+		t.Errorf("got %d, want 0", n)
+	}
+
+	sharedFlags.BlockAttempts = 0
+	if n := getBlockAttempts(); n != 0 {
+		t.Errorf("got %d, want 0", n)
+	}
+
+	sharedFlags.BlockAttempts = 9999
+	if n := getBlockAttempts(); n != 9999 {
+		t.Errorf("got %d, want 9999", n)
+	}
+
+	sharedFlags.NoBlock = oldNoBlock
+	sharedFlags.BlockAttempts = oldBlockAttempts
+}
+
 func newUnitFile(t *testing.T, contents string) *unit.UnitFile {
 	uf, err := unit.NewUnitFile(contents)
 	if err != nil {
