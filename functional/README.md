@@ -69,13 +69,12 @@ sudo apt-get install -y VirtualBox-5.0
 
 ### CentOS/Fedora
 
-**NOTE**: NFS and Vagrant doesn't work out of the box on CentOS 6.x
+**NOTE**: NFS and Vagrant doesn't work out of the box on CentOS 6.x, so it is recommended to use CentOS 7.x
 
 #### Install Vagrant
 
 ```sh
 sudo yum install -y git nfs-utils
-sudo reboot
 sudo service nfs start
 sudo yum install -y https://releases.hashicorp.com/vagrant/1.8.1/vagrant_1.8.1_x86_64.rpm
 ```
