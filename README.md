@@ -1,6 +1,6 @@
 # fleet - a distributed init system
 
-[![Build Status](https://travis-ci.org/coreos/fleet.png?branch=master)](https://travis-ci.org/coreos/fleet)
+[![Build Status](https://travis-ci.org/coreos/fleet.png?branch=master)](https://travis-ci.org/coreos/fleet) [![Build Status](https://ci.endocode.com/buildStatus/icon?job=fleet-tests)](https://ci.endocode.com/job/fleet-tests)
 
 fleet ties together [systemd](http://coreos.com/using-coreos/systemd) and [etcd](https://github.com/coreos/etcd) into a simple distributed init system. Think of it as an extension of systemd that operates at the cluster level instead of the machine level.
 
