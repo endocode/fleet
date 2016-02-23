@@ -21,11 +21,7 @@ if [[ ! $(go version 2>/dev/null) ]]; then
   functional/provision/install_go.sh
 fi
 
-if [ ! -x "bin/fleetd" ] || \
-   [ ! -x "bin/fleetctl" ] || \
-   [ ! $(bin/fleetctl | grep "$VERSION") ]; then
-  ./build
-fi
+./build
 
 source functional/test-env
 eval $(go env)

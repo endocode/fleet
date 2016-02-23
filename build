@@ -33,14 +33,23 @@ export GOPATH=${PWD}/gopath
 
 eval $(go env)
 
-GLDFLAGS="-X $(go_linker_dashX github.com/coreos/fleet/version.Version ${VERSION})"
 
-if [ ${GOOS} = "linux" ]; then
-  echo "Building fleetd..."
-  CGO_ENABLED=0 go build -o bin/fleetd -a -installsuffix netgo -ldflags "${GLDFLAGS}" ${REPO_PATH}/fleetd
-else
-  echo "Not on Linux - skipping fleetd build"
+if [ ! -f bin/fleetd -a ! -f bin/fleetctl  ]; then
+  if [ ! -f last_built_version -o "$VERSION" != "`cat last_built_version`" ]; then
+  GLDFLAGS="-X $(go_linker_dashX github.com/coreos/fleet/version.Version ${VERSION})"
+
+  if [ ${GOOS} = "linux" ]; then
+    echo "Building fleetd..."
+    CGO_ENABLED=0 go build -o bin/fleetd -a -installsuffix netgo -ldflags "${GLDFLAGS}" ${REPO_PATH}/fleetd
+  else
+    echo "Not on Linux - skipping fleetd build"
+  fi
+
+  echo "Building fleetctl..."
+  CGO_ENABLED=0 go build -o bin/fleetctl -a -installsuffix netgo -ldflags "${GLDFLAGS}" ${REPO_PATH}/fleetctl
+  echo $VERSION > last_built_version
 fi
+fi
+  
+echo $VERSION > last_built_version
 
-echo "Building fleetctl..."
-CGO_ENABLED=0 go build -o bin/fleetctl -a -installsuffix netgo -ldflags "${GLDFLAGS}" ${REPO_PATH}/fleetctl
