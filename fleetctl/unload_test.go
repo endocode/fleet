@@ -79,7 +79,7 @@ func doUnloadUnits(r CommandTestResults, errchan chan error) {
 
 	real_units, err := findUnits(r.Units)
 	if err != nil {
-		errchan <- fmt.Errorf("%v", err)
+		errchan <- err
 		return
 	}
 
