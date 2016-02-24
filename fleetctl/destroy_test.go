@@ -21,14 +21,14 @@ import (
 )
 
 func doDestroyUnits(r commandTestResults, errchan chan error) {
-	exit := runDestroyUnits(r.Units)
-	if exit != r.ExpectedExit {
-		errchan <- fmt.Errorf("%s: expected exit code %d but received %d", r.Description, r.ExpectedExit, exit)
+	exit := runDestroyUnits(r.units)
+	if exit != r.expectedExit {
+		errchan <- fmt.Errorf("%s: expected exit code %d but received %d", r.description, r.expectedExit, exit)
 	}
-	for _, destroyedUnit := range r.Units {
+	for _, destroyedUnit := range r.units {
 		u, _ := cAPI.Unit(destroyedUnit)
 		if u != nil {
-			errchan <- fmt.Errorf("%s: unit %s was not destroyed as requested", r.Description, destroyedUnit)
+			errchan <- fmt.Errorf("%s: unit %s was not destroyed as requested", r.description, destroyedUnit)
 		}
 	}
 }
@@ -62,7 +62,7 @@ func TestRunDestroyUnits(t *testing.T) {
 		var wg sync.WaitGroup
 		errchan := make(chan error)
 
-		cAPI = newFakeRegistryForCommands(unitPrefix, len(r.Units))
+		cAPI = newFakeRegistryForCommands(unitPrefix, len(r.units))
 
 		wg.Add(2)
 		go func() {

@@ -29,9 +29,9 @@ import (
 )
 
 type commandTestResults struct {
-	Description  string
-	Units        []string
-	ExpectedExit int
+	description  string
+	units        []string
+	expectedExit int
 }
 
 func newFakeRegistryForCommands(unitPrefix string, unitCount int) client.API {

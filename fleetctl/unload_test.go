@@ -25,12 +25,12 @@ import (
 func doUnloadUnits(r commandTestResults, errchan chan error) {
 	sharedFlags.NoBlock = true
 
-	exit := runUnloadUnit(r.Units)
-	if exit != r.ExpectedExit {
-		errchan <- fmt.Errorf("%s: expected exit code %d but received %d", r.Description, r.ExpectedExit, exit)
+	exit := runUnloadUnit(r.units)
+	if exit != r.expectedExit {
+		errchan <- fmt.Errorf("%s: expected exit code %d but received %d", r.description, r.expectedExit, exit)
 	}
 
-	real_units, err := findUnits(r.Units)
+	real_units, err := findUnits(r.units)
 	if err != nil {
 		errchan <- err
 		return
@@ -68,7 +68,7 @@ func TestRunUnloadUnits(t *testing.T) {
 		var wg sync.WaitGroup
 		errchan := make(chan error)
 
-		cAPI = newFakeRegistryForCommands(unitPrefix, len(r.Units))
+		cAPI = newFakeRegistryForCommands(unitPrefix, len(r.units))
 
 		wg.Add(2)
 		go func() {
