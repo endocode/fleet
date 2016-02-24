@@ -18,58 +18,9 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-
-	"github.com/coreos/fleet/client"
-	"github.com/coreos/fleet/job"
-	"github.com/coreos/fleet/machine"
-	"github.com/coreos/fleet/registry"
-	"github.com/coreos/fleet/unit"
 )
 
-func newFakeRegistryForDestroy(prefix string, unitCount int) client.API {
-	// clear machineStates for every invocation
-	machineStates = nil
-	machines := []machine.MachineState{
-		newMachineState("c31e44e1-f858-436e-933e-59c642517860", "1.2.3.4", map[string]string{"ping": "pong"}),
-		newMachineState("595989bb-cbb7-49ce-8726-722d6e157b4e", "5.6.7.8", map[string]string{"foo": "bar"}),
-	}
-
-	jobs := make([]job.Job, 0)
-	appendJobsForTests(&jobs, machines[0], prefix, unitCount)
-	appendJobsForTests(&jobs, machines[1], prefix, unitCount)
-
-	states := make([]unit.UnitState, 0)
-	for i := 1; i <= unitCount; i++ {
-		state := unit.UnitState{
-			UnitName:    fmt.Sprintf("%s%d.service", prefix, i),
-			LoadState:   "loaded",
-			ActiveState: "active",
-			SubState:    "listening",
-			MachineID:   machines[0].ID,
-		}
-		states = append(states, state)
-	}
-
-	for i := 1; i <= unitCount; i++ {
-		state := unit.UnitState{
-			UnitName:    fmt.Sprintf("%s%d.service", prefix, i),
-			LoadState:   "loaded",
-			ActiveState: "inactive",
-			SubState:    "dead",
-			MachineID:   machines[1].ID,
-		}
-		states = append(states, state)
-	}
-
-	reg := registry.NewFakeRegistry()
-	reg.SetMachines(machines)
-	reg.SetUnitStates(states)
-	reg.SetJobs(jobs)
-
-	return &client.RegistryClient{Registry: reg}
-}
-
-func doDestroyUnits(r CommandTestResults, errchan chan error) {
+func doDestroyUnits(r commandTestResults, errchan chan error) {
 	exit := runDestroyUnits(r.Units)
 	if exit != r.ExpectedExit {
 		errchan <- fmt.Errorf("%s: expected exit code %d but received %d", r.Description, r.ExpectedExit, exit)
@@ -85,7 +36,7 @@ func doDestroyUnits(r CommandTestResults, errchan chan error) {
 // TestRunDestroyUnits checks for correct unit destruction
 func TestRunDestroyUnits(t *testing.T) {
 	unitPrefix := "j"
-	results := []CommandTestResults{
+	results := []commandTestResults{
 		{
 			"destroy available units",
 			[]string{"j1", "j2", "j3", "j4", "j5"},
@@ -111,7 +62,7 @@ func TestRunDestroyUnits(t *testing.T) {
 		var wg sync.WaitGroup
 		errchan := make(chan error)
 
-		cAPI = newFakeRegistryForDestroy(unitPrefix, len(r.Units))
+		cAPI = newFakeRegistryForCommands(unitPrefix, len(r.Units))
 
 		wg.Add(2)
 		go func() {
