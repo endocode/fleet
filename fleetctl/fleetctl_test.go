@@ -34,8 +34,8 @@ type CommandTestResults struct {
 	ExpectedExit int
 }
 
-func appendJobsForTests(jobs *[]job.Job, machine machine.MachineState, prefix string, unitCnt int) {
-	for i := 1; i <= unitCnt; i++ {
+func appendJobsForTests(jobs *[]job.Job, machine machine.MachineState, prefix string, unitCount int) {
+	for i := 1; i <= unitCount; i++ {
 		j := job.Job{
 			Name:            fmt.Sprintf("%s%d.service", prefix, i),
 			Unit:            unit.UnitFile{},

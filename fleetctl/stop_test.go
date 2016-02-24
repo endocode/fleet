@@ -26,7 +26,7 @@ import (
 	"github.com/coreos/fleet/unit"
 )
 
-func newFakeRegistryForStop(prefix string, unitCnt int) client.API {
+func newFakeRegistryForStop(prefix string, unitCount int) client.API {
 	// clear machineStates for every invocation
 	machineStates = nil
 	machines := []machine.MachineState{
@@ -35,11 +35,11 @@ func newFakeRegistryForStop(prefix string, unitCnt int) client.API {
 	}
 
 	jobs := make([]job.Job, 0)
-	appendJobsForTests(&jobs, machines[0], prefix, unitCnt)
-	appendJobsForTests(&jobs, machines[1], prefix, unitCnt)
+	appendJobsForTests(&jobs, machines[0], prefix, unitCount)
+	appendJobsForTests(&jobs, machines[1], prefix, unitCount)
 
 	states := make([]unit.UnitState, 0)
-	for i := 1; i <= unitCnt; i++ {
+	for i := 1; i <= unitCount; i++ {
 		state := unit.UnitState{
 			UnitName:    fmt.Sprintf("%s%d.service", prefix, i),
 			LoadState:   "loaded",
@@ -50,7 +50,7 @@ func newFakeRegistryForStop(prefix string, unitCnt int) client.API {
 		states = append(states, state)
 	}
 
-	for i := 1; i <= unitCnt; i++ {
+	for i := 1; i <= unitCount; i++ {
 		state := unit.UnitState{
 			UnitName:    fmt.Sprintf("%s%d.service", prefix, i),
 			LoadState:   "loaded",
