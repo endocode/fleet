@@ -1,4 +1,4 @@
-// Copyright 2014 CoreOS, Inc.
+// Copyright 2016 CoreOS, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/coreos/fleet/client"
 	"github.com/coreos/fleet/job"
@@ -26,12 +25,6 @@ import (
 	"github.com/coreos/fleet/registry"
 	"github.com/coreos/fleet/unit"
 )
-
-type UnloadTestResults struct {
-	Description  string
-	Units        []string
-	ExpectedExit int
-}
 
 func newFakeRegistryForUnload(prefix string, unitCnt int) client.API {
 	// clear machineStates for every invocation
@@ -76,7 +69,7 @@ func newFakeRegistryForUnload(prefix string, unitCnt int) client.API {
 	return &client.RegistryClient{Registry: reg}
 }
 
-func doUnloadUnits(r UnloadTestResults, errchan chan error) {
+func doUnloadUnits(r CommandTestResults, errchan chan error) {
 	sharedFlags.NoBlock = true
 
 	exit := runUnloadUnit(r.Units)
@@ -101,14 +94,14 @@ func doUnloadUnits(r UnloadTestResults, errchan chan error) {
 // TestRunUnloadUnits checks
 func TestRunUnloadUnits(t *testing.T) {
 	unitPrefix := "unload"
-	results := []UnloadTestResults{
+	results := []CommandTestResults{
 		{
 			"unload available units",
 			[]string{"unload1", "unload2", "unload3", "unload4", "unload5"},
 			0,
 		},
 		{
-			"unload non-existent units",
+			"unload non-available units",
 			[]string{"y1", "y2"},
 			0,
 		},
@@ -128,7 +121,6 @@ func TestRunUnloadUnits(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			time.Sleep(2 * time.Microsecond)
 			doUnloadUnits(r, errchan)
 		}()
 		go func() {

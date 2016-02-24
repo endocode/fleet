@@ -28,6 +28,12 @@ import (
 	"github.com/coreos/fleet/Godeps/_workspace/src/github.com/coreos/go-semver/semver"
 )
 
+type CommandTestResults struct {
+	Description  string
+	Units        []string
+	ExpectedExit int
+}
+
 func appendJobsForTests(jobs *[]job.Job, machine machine.MachineState, prefix string, unitCnt int) {
 	for i := 1; i <= unitCnt; i++ {
 		j := job.Job{

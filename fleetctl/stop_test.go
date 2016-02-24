@@ -1,4 +1,4 @@
-// Copyright 2014 CoreOS, Inc.
+// Copyright 2016 CoreOS, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/coreos/fleet/client"
 	"github.com/coreos/fleet/job"
@@ -26,12 +25,6 @@ import (
 	"github.com/coreos/fleet/registry"
 	"github.com/coreos/fleet/unit"
 )
-
-type StopTestResults struct {
-	Description  string
-	Units        []string
-	ExpectedExit int
-}
 
 func newFakeRegistryForStop(prefix string, unitCnt int) client.API {
 	// clear machineStates for every invocation
@@ -76,7 +69,7 @@ func newFakeRegistryForStop(prefix string, unitCnt int) client.API {
 	return &client.RegistryClient{Registry: reg}
 }
 
-func doStopUnits(r StopTestResults, errchan chan error) {
+func doStopUnits(r CommandTestResults, errchan chan error) {
 	sharedFlags.NoBlock = true
 
 	exit := runStopUnit(r.Units)
@@ -101,14 +94,14 @@ func doStopUnits(r StopTestResults, errchan chan error) {
 // TestRunStopUnits checks
 func TestRunStopUnits(t *testing.T) {
 	unitPrefix := "stop"
-	results := []StopTestResults{
+	results := []CommandTestResults{
 		{
 			"stop available units",
 			[]string{"stop1", "stop2", "stop3", "stop4", "stop5"},
 			0,
 		},
 		{
-			"stop non-existent units",
+			"stop non-available units",
 			[]string{"y1", "y2"},
 			0,
 		},
@@ -128,7 +121,6 @@ func TestRunStopUnits(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			time.Sleep(2 * time.Microsecond)
 			doStopUnits(r, errchan)
 		}()
 		go func() {

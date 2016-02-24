@@ -1,4 +1,4 @@
-// Copyright 2014 CoreOS, Inc.
+// Copyright 2016 CoreOS, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/coreos/fleet/client"
 	"github.com/coreos/fleet/job"
@@ -26,12 +25,6 @@ import (
 	"github.com/coreos/fleet/registry"
 	"github.com/coreos/fleet/unit"
 )
-
-type DestroyTestResults struct {
-	Description  string
-	DestroyUnits []string
-	ExpectedExit int
-}
 
 func newFakeRegistryForDestroy(prefix string, unitCnt int) client.API {
 	// clear machineStates for every invocation
@@ -76,12 +69,12 @@ func newFakeRegistryForDestroy(prefix string, unitCnt int) client.API {
 	return &client.RegistryClient{Registry: reg}
 }
 
-func doDestroyUnits(r DestroyTestResults, errchan chan error) {
-	exit := runDestroyUnits(r.DestroyUnits)
+func doDestroyUnits(r CommandTestResults, errchan chan error) {
+	exit := runDestroyUnits(r.Units)
 	if exit != r.ExpectedExit {
 		errchan <- fmt.Errorf("%s: expected exit code %d but received %d", r.Description, r.ExpectedExit, exit)
 	}
-	for _, destroyedUnit := range r.DestroyUnits {
+	for _, destroyedUnit := range r.Units {
 		u, _ := cAPI.Unit(destroyedUnit)
 		if u != nil {
 			errchan <- fmt.Errorf("%s: unit %s was not destroyed as requested", r.Description, destroyedUnit)
@@ -92,14 +85,14 @@ func doDestroyUnits(r DestroyTestResults, errchan chan error) {
 // TestRunDestroyUnits checks for correct unit destruction
 func TestRunDestroyUnits(t *testing.T) {
 	unitPrefix := "j"
-	results := []DestroyTestResults{
+	results := []CommandTestResults{
 		{
 			"destroy available units",
 			[]string{"j1", "j2", "j3", "j4", "j5"},
 			0,
 		},
 		{
-			"destroy non-existent units",
+			"destroy non-available units",
 			[]string{"y1", "y2"},
 			0,
 		},
@@ -118,12 +111,11 @@ func TestRunDestroyUnits(t *testing.T) {
 		var wg sync.WaitGroup
 		errchan := make(chan error)
 
-		cAPI = newFakeRegistryForDestroy(unitPrefix, len(r.DestroyUnits))
+		cAPI = newFakeRegistryForDestroy(unitPrefix, len(r.Units))
 
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			time.Sleep(2 * time.Microsecond)
 			doDestroyUnits(r, errchan)
 		}()
 		go func() {
