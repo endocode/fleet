@@ -25,6 +25,16 @@ import (
 	"github.com/coreos/fleet/Godeps/_workspace/src/github.com/coreos/go-systemd/unit"
 )
 
+const (
+	ErrNameInfo            = 1
+	ErrNotTemplateInstance = 2
+)
+
+var ErrorDescription = []string{
+	ErrNameInfo:            "Unable to extract information from unit name",
+	ErrNotTemplateInstance: "Not an instance of a template unit",
+}
+
 func NewUnitFile(raw string) (*UnitFile, error) {
 	reader := strings.NewReader(raw)
 	opts, err := unit.Deserialize(reader)
