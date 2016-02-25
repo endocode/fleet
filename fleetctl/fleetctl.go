@@ -498,14 +498,20 @@ func getUnitFile(file string) (*unit.UnitFile, error) {
 		}
 	} else {
 		// Otherwise (if the unit file does not exist), check if the
-		// name appears to be an instance unit, and if so, check for
-		// a corresponding template unit in the Registry or disk.
+		// name appears to be an instance of a template unit
+		info, ret := getUnitInstanceInfo(name)
+		if ret != 0 {
+			return nil, fmt.Errorf("failed getting template Unit(%s) info: %s", name, unit.ErrorDescription[ret])
+		}
+
+		// If it is an instance check for a corresponding template
+		// unit in the Registry or disk.
 		// If we found a template unit, later we create a
 		// near-identical instance unit in the Registry - same
 		// unit file as the template, but different name
-		uf, err = getUnitFileFromTemplate(file)
+		uf, err = getUnitFileFromTemplate(file, info)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed getting Unit(%s) from template: %v", file, err)
 		}
 	}
 
@@ -527,25 +533,27 @@ func getUnitFromFile(file string) (*unit.UnitFile, error) {
 	return unit.NewUnitFile(string(out))
 }
 
+func getUnitInstanceInfo(name string) (*unit.UnitNameInfo, int) {
+	// Check if the name appears to be an instance unit
+	uni := unit.NewUnitNameInfo(name)
+	if uni == nil {
+		return nil, unit.ErrNameInfo
+	} else if !uni.IsInstance() {
+		return nil, unit.ErrNotTemplateInstance
+	}
+
+	return uni, 0
+}
+
 // getUnitFileFromTemplate checks if the name appears to be an instance unit
 // and gets its corresponding template unit from the registry or local disk
 // It returns the Unit or nil; and any error encountered
-func getUnitFileFromTemplate(arg string) (*unit.UnitFile, error) {
+func getUnitFileFromTemplate(arg string, uni *unit.UnitNameInfo) (*unit.UnitFile, error) {
 	var uf *unit.UnitFile
-	name := unitNameMangle(arg)
-
-	// Check if the name appears to be an instance unit, and if so,
-	// check for a corresponding template unit in the Registry
-	uni := unit.NewUnitNameInfo(name)
-	if uni == nil {
-		return nil, fmt.Errorf("error extracting information from unit name %s", name)
-	} else if !uni.IsInstance() {
-		return nil, fmt.Errorf("unable to find Unit(%s) in Registry or on filesystem", name)
-	}
 
 	tmpl, err := cAPI.Unit(uni.Template)
 	if err != nil {
-		return nil, fmt.Errorf("error retrieving template Unit(%s) from Registry: %v", uni.Template, err)
+		return nil, fmt.Errorf("unable to retrieve Unit(%s) from Registry: %v", uni.Template, err)
 	}
 
 	if tmpl != nil {
@@ -557,12 +565,12 @@ func getUnitFileFromTemplate(arg string) (*unit.UnitFile, error) {
 		// check the local disk for one instead
 		file := path.Join(path.Dir(arg), uni.Template)
 		if _, err := os.Stat(file); os.IsNotExist(err) {
-			return nil, fmt.Errorf("unable to find Unit(%s) or template Unit(%s) in Registry or on filesystem", name, uni.Template)
+			return nil, fmt.Errorf("unable to find Unit(%s) on filesystem", file)
 		}
 
 		uf, err = getUnitFromFile(file)
 		if err != nil {
-			return nil, fmt.Errorf("failed getting template Unit(%s) from file: %v", uni.Template, err)
+			return nil, fmt.Errorf("unable to load Unit(%s) from file: %v", file, err)
 		}
 	}
 
