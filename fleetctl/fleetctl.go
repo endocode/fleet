@@ -498,9 +498,9 @@ func getUnitFile(file string) (*unit.UnitFile, error) {
 	} else {
 		// Otherwise (if the unit file does not exist), check if the
 		// name appears to be an instance of a template unit
-		info, ret := getUnitInstanceInfo(name)
-		if ret != 0 {
-			return nil, fmt.Errorf("failed getting template Unit(%s) info: %s", name, unit.ErrorDescription[ret])
+		info, err := getUnitInstanceInfo(name)
+		if err != nil {
+			return nil, fmt.Errorf("failed getting template Unit(%s) info: %v", name, err)
 		}
 
 		// If it is an instance check for a corresponding template
@@ -532,16 +532,16 @@ func getUnitFromFile(file string) (*unit.UnitFile, error) {
 	return unit.NewUnitFile(string(out))
 }
 
-func getUnitInstanceInfo(name string) (*unit.UnitNameInfo, int) {
+func getUnitInstanceInfo(name string) (*unit.UnitNameInfo, error) {
 	// Check if the name appears to be an instance unit
 	uni := unit.NewUnitNameInfo(name)
 	if uni == nil {
-		return nil, unit.ErrNameInfo
+		return nil, errors.New("unable to extract information from unit name")
 	} else if !uni.IsInstance() {
-		return nil, unit.ErrNotTemplateInstance
+		return nil, errors.New("Not an instance of a template unit")
 	}
 
-	return uni, 0
+	return uni, nil
 }
 
 // getUnitFileFromTemplate checks if the name appears to be an instance unit
