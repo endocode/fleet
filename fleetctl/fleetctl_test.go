@@ -184,46 +184,32 @@ func TestUnitNameMangle(t *testing.T) {
 func TestGetBlockAttempts(t *testing.T) {
 	oldNoBlock := sharedFlags.NoBlock
 	oldBlockAttempts := sharedFlags.BlockAttempts
-	sharedFlags.NoBlock = true
-	sharedFlags.BlockAttempts = 0
 
-	if n := getBlockAttempts(); n != -1 {
-		t.Errorf("got %d, want -1", n)
+	defer func() {
+		sharedFlags.NoBlock = oldNoBlock
+		sharedFlags.BlockAttempts = oldBlockAttempts
+	}()
+
+	var blocktests = []struct {
+		noBlock       bool
+		blockAttempts int
+		expected      int
+	}{
+		{true, 0, -1},
+		{true, -1, -1},
+		{true, 9999, -1},
+		{false, 0, 0},
+		{false, -1, 0},
+		{false, 9999, 9999},
 	}
 
-	sharedFlags.BlockAttempts = -1
-	if n := getBlockAttempts(); n != -1 {
-		t.Errorf("got %d, want -1", n)
+	for _, tt := range blocktests {
+		sharedFlags.NoBlock = tt.noBlock
+		sharedFlags.BlockAttempts = tt.blockAttempts
+		if n := getBlockAttempts(); n != tt.expected {
+			t.Errorf("got %d, want %d", n, tt.expected)
+		}
 	}
-
-	sharedFlags.BlockAttempts = 9999
-	if n := getBlockAttempts(); n != -1 {
-		t.Errorf("got %d, want -1", n)
-	}
-
-	sharedFlags.NoBlock = false
-	sharedFlags.BlockAttempts = 0
-	if n := getBlockAttempts(); n != 0 {
-		t.Errorf("got %d, want 0", n)
-	}
-
-	sharedFlags.BlockAttempts = -1
-	if n := getBlockAttempts(); n != 0 {
-		t.Errorf("got %d, want 0", n)
-	}
-
-	sharedFlags.BlockAttempts = 0
-	if n := getBlockAttempts(); n != 0 {
-		t.Errorf("got %d, want 0", n)
-	}
-
-	sharedFlags.BlockAttempts = 9999
-	if n := getBlockAttempts(); n != 9999 {
-		t.Errorf("got %d, want 9999", n)
-	}
-
-	sharedFlags.NoBlock = oldNoBlock
-	sharedFlags.BlockAttempts = oldBlockAttempts
 }
 
 func newUnitFile(t *testing.T, contents string) *unit.UnitFile {
