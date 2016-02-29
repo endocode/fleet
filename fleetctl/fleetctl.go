@@ -565,7 +565,7 @@ func getUnitFileFromTemplate(arg string, uni *unit.UnitNameInfo) (*unit.UnitFile
 		// check the local disk for one instead
 		file := path.Join(path.Dir(arg), uni.Template)
 		if _, err := os.Stat(file); os.IsNotExist(err) {
-			return nil, fmt.Errorf("unable to find Unit(%s) on filesystem", file)
+			return nil, fmt.Errorf("unable to find Unit(%s) in Registry or on filesystem", uni.Template)
 		}
 
 		uf, err = getUnitFromFile(file)
