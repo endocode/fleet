@@ -608,6 +608,50 @@ func machineFullLegend(ms machine.MachineState, full bool) string {
 	return legend
 }
 
+type controlUnitDo func(*schema.Unit, int) int
+
+// controlUnitStates Optimised function to perform state operations on
+// Units
+func controlUnitsStates(args []string, ignoreNotExist bool, getFinalUnits bool, doControl controlUnitDo) (*[]string, int) {
+	realUnits, err := cAPI.Units()
+	if err != nil {
+		stderr("%v", err)
+		return nil, 1
+	}
+
+	realUnitsMap := make(map[string]*schema.Unit, len(realUnits))
+	for _, u := range realUnits {
+		u := u
+		realUnitsMap[u.Name] = u
+	}
+
+	index := 0
+	finalUnits := make([]string, len(realUnits))
+	for i, arg := range args {
+		name := unitNameMangle(arg)
+		u, ok := realUnitsMap[name]
+		if !ok {
+			if !ignoreNotExist {
+				stderr("Unit %s does not exist.", name)
+				return nil, 1
+			}
+			continue
+		}
+
+		ret := doControl(u, i)
+		if ret != 0 {
+			return nil, 1
+		}
+
+		if getFinalUnits {
+			finalUnits[index] = name
+			index++
+		}
+	}
+
+	return &finalUnits, 0
+}
+
 func findUnits(args []string) (sus []schema.Unit, err error) {
 	units, err := cAPI.Units()
 	if err != nil {

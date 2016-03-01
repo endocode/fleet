@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/coreos/fleet/job"
+	"github.com/coreos/fleet/schema"
 )
 
 var cmdStatusUnits = &Command{
@@ -42,35 +43,24 @@ func init() {
 	cmdStatusUnits.Flags.IntVar(&sharedFlags.SSHPort, "ssh-port", 22, "Connect to remote hosts over SSH using this TCP port.")
 }
 
-func runStatusUnits(args []string) (exit int) {
-	for i, arg := range args {
-		name := unitNameMangle(arg)
-		unit, err := cAPI.Unit(name)
-		if err != nil {
-			stderr("Error retrieving unit: %v", err)
-			return 1
-		}
-
-		if unit == nil {
-			stderr("Unit %s does not exist.", name)
-			return 1
-		} else if suToGlobal(*unit) {
-			stderr("Unable to determine status of global unit %s.", unit.Name)
-			return 1
-		} else if job.JobState(unit.CurrentState) == job.JobStateInactive {
-			stderr("Unit %s does not appear to be loaded.", unit.Name)
-			return 1
-		}
-
-		// This extra newline is here to match systemctl status output
-		if i != 0 {
-			fmt.Printf("\n")
-		}
-
-		if exit = runCommand(unit.MachineID, "systemctl", "status", "-l", unit.Name); exit != 0 {
-			break
-		}
+func doUnitStatus(unit *schema.Unit, n int) int {
+	if suToGlobal(*unit) {
+		stderr("Unable to determine status of global unit %s.", unit.Name)
+		return 1
+	} else if job.JobState(unit.CurrentState) == job.JobStateInactive {
+		stderr("Unit %s does not appear to be loaded.", unit.Name)
+		return 1
 	}
 
+	// This extra newline is here to match systemctl status output
+	if n != 0 {
+		fmt.Printf("\n")
+	}
+
+	return runCommand(unit.MachineID, "systemctl", "status", "-l", unit.Name)
+}
+
+func runStatusUnits(args []string) (exit int) {
+	_, exit = controlUnitsStates(args, false, false, doUnitStatus)
 	return
 }
