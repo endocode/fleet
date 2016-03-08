@@ -103,6 +103,7 @@ var (
 		Full          bool
 		NoLegend      bool
 		NoBlock       bool
+		Replace       bool
 		BlockAttempts int
 		Fields        string
 		SSHPort       int
