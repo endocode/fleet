@@ -694,6 +694,8 @@ func checkUnitCreation(arg string) (int, error) {
 			return 1, err
 		} else if different {
 			return 0, nil
+		} else {
+			stdout("Found same Unit(%s) in Registry, nothing to do", unit.Name)
 		}
 	}
 
@@ -779,7 +781,7 @@ func matchLocalFileAndUnit(file string, su *schema.Unit) (bool, error) {
 	a := schema.MapSchemaUnitOptionsToUnitFile(su.Options)
 
 	_, err := os.Stat(file)
-	if err != nil && os.IsNotExist(err) {
+	if err == nil {
 		b, err := getUnitFromFile(file)
 		if err == nil {
 			result = matchUnitFiles(a, b)
@@ -791,15 +793,13 @@ func matchLocalFileAndUnit(file string, su *schema.Unit) (bool, error) {
 
 func isLocalUnitDifferent(file string, su *schema.Unit, warnIfDifferent bool, fatal bool) (bool, error) {
 	result, err := matchLocalFileAndUnit(file, su)
-	if err != nil {
-		if fatal {
-			return false, err
-		}
-	} else if result == false {
-		if warnIfDifferent {
+	if err == nil {
+		if result == false && warnIfDifferent {
 			stderr("WARNING: Unit %s in registry differs from local unit file %s", su.Name, file)
 		}
-		return true, nil
+		return !result, nil
+	} else if fatal {
+		return false, err
 	}
 
 	info := unit.NewUnitNameInfo(path.Base(file))
@@ -811,16 +811,14 @@ func isLocalUnitDifferent(file string, su *schema.Unit, warnIfDifferent bool, fa
 
 	templFile := path.Join(path.Dir(file), info.Template)
 	result, err = matchLocalFileAndUnit(templFile, su)
-	if err != nil {
-		return false, err
-	} else if result == false {
-		if warnIfDifferent {
+	if err == nil {
+		if result == false && warnIfDifferent {
 			stderr("WARNING: Unit %s in registry differs from local template unit file %s", su.Name, info.Template)
 		}
-		return true, nil
+		return !result, nil
 	}
 
-	return false, nil
+	return false, err
 }
 
 func warnOnDifferentLocalUnit(loc string, su *schema.Unit) {
