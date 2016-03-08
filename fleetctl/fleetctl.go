@@ -664,6 +664,36 @@ func createUnit(name string, uf *unit.UnitFile) (*schema.Unit, error) {
 	return &u, nil
 }
 
+// checkUnitCreation checks if the unit should be created
+// It takes a unit file path as a prameter.
+// It returns 0 on success and if the unit should be created, 1 if the
+// unit should not be created; and any error acountered
+func checkUnitCreation(arg string) (int, error) {
+	name := unitNameMangle(arg)
+
+	// First, check if there already exists a Unit by the given name in the Registry
+	unit, err := cAPI.Unit(name)
+	if err != nil {
+		return 1, fmt.Errorf("error retrieving Unit(%s) from Registry: %v", name, err)
+	}
+
+	// check if the unit is running
+	if unit == nil {
+		if sharedFlags.Replace {
+			log.Debugf("Unit(%s) was not found in Registry", name)
+		}
+		return 0, nil
+	}
+
+	if !sharedFlags.Replace {
+		log.Debugf("Found Unit(%s) in Registry, no need to recreate it", name)
+		warnOnDifferentLocalUnit(arg, unit)
+		return 1, nil
+	}
+
+	return 1, nil
+}
+
 // lazyCreateUnits iterates over a set of unit names and, for each, attempts to
 // ensure that a unit by that name exists in the Registry, by checking a number
 // of conditions and acting on the first one that succeeds, in order of:
@@ -689,6 +719,13 @@ func lazyCreateUnits(args []string) error {
 		if u != nil {
 			log.Debugf("Found Unit(%s) in Registry, no need to recreate it", name)
 			warnOnDifferentLocalUnit(arg, u)
+			continue
+		}
+
+		ret, err := checkUnitCreation(arg)
+		if err != nil {
+			return err
+		} else if ret != 0 {
 			continue
 		}
 
