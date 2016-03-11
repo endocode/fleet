@@ -633,13 +633,21 @@ func findUnits(args []string) (sus []schema.Unit, err error) {
 	return filtered, nil
 }
 
-func createUnit(name string, uf *unit.UnitFile) (*schema.Unit, error) {
+func createUnit(name string, uf *unit.UnitFile, oldUnit *schema.Unit) (*schema.Unit, error) {
+	var oldState string
+
 	if uf == nil {
 		return nil, fmt.Errorf("nil unit provided")
 	}
+
+	if oldUnit != nil {
+		oldState = oldUnit.DesiredState
+	}
+
 	u := schema.Unit{
 		Name:    name,
 		Options: schema.MapUnitFileToSchemaUnitOptions(uf),
+		DesiredState: oldState,
 	}
 	// TODO(jonboulle): this dependency on the API package is awkward, and
 	// redundant with the check in api.unitsResource.set, but it is a
@@ -668,7 +676,7 @@ func createUnit(name string, uf *unit.UnitFile) (*schema.Unit, error) {
 // It takes a unit file path as a prameter.
 // It returns 0 on success and if the unit should be created, 1 if the
 // unit should not be created; and any error acountered
-func checkUnitCreation(arg string) (int, error) {
+func checkUnitCreation(arg string, old *schema.Unit) (int, error) {
 	name := unitNameMangle(arg)
 
 	// First, check if there already exists a Unit by the given name in the Registry
@@ -693,6 +701,7 @@ func checkUnitCreation(arg string) (int, error) {
 		if err != nil {
 			return 1, err
 		} else if different {
+			old = unit
 			return 0, nil
 		} else {
 			stdout("Found same Unit(%s) in Registry, nothing to do", unit.Name)
@@ -718,10 +727,11 @@ func lazyCreateUnits(args []string) error {
 	errchan := make(chan error)
 	var wg sync.WaitGroup
 	for _, arg := range args {
+		var oldUnit schema.Unit
 		arg = maybeAppendDefaultUnitType(arg)
 		name := unitNameMangle(arg)
 
-		ret, err := checkUnitCreation(arg)
+		ret, err := checkUnitCreation(arg, &oldUnit)
 		if err != nil {
 			return err
 		} else if ret != 0 {
@@ -736,7 +746,7 @@ func lazyCreateUnits(args []string) error {
 			return err
 		}
 
-		_, err = createUnit(name, uf)
+		_, err = createUnit(name, uf, &oldUnit)
 		if err != nil {
 			return err
 		}
