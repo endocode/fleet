@@ -26,6 +26,7 @@ import (
 
 const (
 	fleetAPIPort = 54728
+	FleetTTL     = "3s"
 	cloudConfig  = `#cloud-config
 
 write_files:
@@ -35,7 +36,7 @@ write_files:
     etcd_servers=[{{printf "%q" .EtcdEndpoint}}]
     etcd_key_prefix={{.EtcdKeyPrefix}}
     public_ip={{.IP}}
-    agent_ttl=3s
+    agent_ttl={{.TTL}}
 
 ssh_authorized_keys:
  - {{printf "%q" .PublicKey}}
@@ -74,6 +75,7 @@ type configValues struct {
 	EtcdEndpoint  string
 	EtcdKeyPrefix string
 	FleetAPIPort  int
+	TTL           string
 }
 
 func init() {
@@ -110,6 +112,7 @@ func BuildCloudConfig(dst io.Writer, ip, etcdEndpoint, etcdKeyPrefix string) err
 		EtcdEndpoint:  etcdEndpoint,
 		EtcdKeyPrefix: etcdKeyPrefix,
 		FleetAPIPort:  fleetAPIPort,
+		TTL:           FleetTTL,
 	}
 
 	return configTemplate.Execute(dst, &values)
