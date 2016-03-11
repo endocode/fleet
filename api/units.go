@@ -112,7 +112,6 @@ func (ur *unitsResource) set(rw http.ResponseWriter, req *http.Request, item str
 			// This is a new Unit
 			newUnit = true
 		}
-		return
 	} else if eu.Name == su.Name {
 		// There is already a unit with the same name
 		// check the hashes if they do not match then we will
