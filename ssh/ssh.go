@@ -18,6 +18,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -68,10 +69,13 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
-	session.Stdin = os.Stdin
+
+	sshReader, sshWriter := io.Pipe()
+	session.Stdin = sshReader
 
 	modes := gossh.TerminalModes{
 		gossh.ECHO:          1,     // enable echoing
+		gossh.ONLCR:         0,     // removes ^M
 		gossh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
 		gossh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
 	}
@@ -89,6 +93,8 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 
 		finalize = func() {
 			session.Close()
+			sshReader.Close()
+			sshWriter.Close()
 			terminal.Restore(fd, oldState)
 		}
 
@@ -101,6 +107,8 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 	} else {
 		finalize = func() {
 			session.Close()
+			sshReader.Close()
+			sshWriter.Close()
 		}
 	}
 
