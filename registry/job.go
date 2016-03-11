@@ -335,7 +335,7 @@ func (r *EtcdRegistry) CreateUnit(u *job.Unit) (err error) {
 	}
 
 	opts := &etcd.SetOptions{
-		PrevExist: etcd.PrevNoExist,
+		PrevExist: etcd.PrevIgnore,
 	}
 	key := r.prefixed(jobPrefix, u.Name, "object")
 	_, err = r.kAPI.Set(r.ctx(), key, val, opts)
