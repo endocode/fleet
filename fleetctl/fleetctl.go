@@ -103,6 +103,7 @@ var (
 		Full          bool
 		NoLegend      bool
 		NoBlock       bool
+		Replace       bool
 		BlockAttempts int
 		Fields        string
 		SSHPort       int
@@ -555,7 +556,7 @@ func getUnitFileFromTemplate(uni *unit.UnitNameInfo, fileName string) (*unit.Uni
 	}
 
 	if tmpl != nil {
-		warnOnDifferentLocalUnit(fileName, tmpl)
+		isLocalUnitDifferent(fileName, tmpl, true, false)
 		uf = schema.MapSchemaUnitOptionsToUnitFile(tmpl.Options)
 		log.Debugf("Template Unit(%s) found in registry", uni.Template)
 	} else {
@@ -632,13 +633,29 @@ func findUnits(args []string) (sus []schema.Unit, err error) {
 	return filtered, nil
 }
 
-func createUnit(name string, uf *unit.UnitFile) (*schema.Unit, error) {
+func createUnit(name string, uf *unit.UnitFile, oldUnit *schema.Unit) (*schema.Unit, error) {
+	var oldState string
+
 	if uf == nil {
 		return nil, fmt.Errorf("nil unit provided")
 	}
+
+	if sharedFlags.Replace {
+		log.Debugf("createUnit: destroying the existing unit before replacing it")
+		err := cAPI.DestroyUnit(name)
+		if err != nil {
+			log.Errorf("createUnit: cannot destroy unit %v", name)
+		}
+	}
+
+	if oldUnit != nil {
+		oldState = oldUnit.DesiredState
+	}
+
 	u := schema.Unit{
 		Name:    name,
 		Options: schema.MapUnitFileToSchemaUnitOptions(uf),
+		DesiredState: oldState,
 	}
 	// TODO(jonboulle): this dependency on the API package is awkward, and
 	// redundant with the check in api.unitsResource.set, but it is a
@@ -663,6 +680,47 @@ func createUnit(name string, uf *unit.UnitFile) (*schema.Unit, error) {
 	return &u, nil
 }
 
+// checkUnitCreation checks if the unit should be created
+// It takes a unit file path as a prameter.
+// It returns 0 on success and if the unit should be created, 1 if the
+// unit should not be created; and any error acountered
+func checkUnitCreation(arg string, old *schema.Unit) (int, error) {
+	name := unitNameMangle(arg)
+
+	// First, check if there already exists a Unit by the given name in the Registry
+	unit, err := cAPI.Unit(name)
+	if err != nil {
+		return 1, fmt.Errorf("error retrieving Unit(%s) from Registry: %v", name, err)
+	}
+
+	// check if the unit is running
+	if unit == nil {
+		if sharedFlags.Replace {
+			log.Debugf("Unit(%s) was not found in Registry", name)
+		}
+		return 0, nil
+	}
+
+	// if sharedFlags.Replace is not set then we warn
+	different, err := isLocalUnitDifferent(arg, unit, !sharedFlags.Replace, false)
+
+	// if sharedFlags.Replace is set then we fail for errors
+	if sharedFlags.Replace {
+		if err != nil {
+			return 1, err
+		} else if different {
+			*old = *unit
+			return 0, nil
+		} else {
+			stdout("Found same Unit(%s) in Registry, nothing to do", unit.Name)
+		}
+	}
+
+	log.Debugf("Found same Unit(%s) in Registry, no need to recreate it", name)
+
+	return 1, nil
+}
+
 // lazyCreateUnits iterates over a set of unit names and, for each, attempts to
 // ensure that a unit by that name exists in the Registry, by checking a number
 // of conditions and acting on the first one that succeeds, in order of:
@@ -677,17 +735,14 @@ func lazyCreateUnits(args []string) error {
 	errchan := make(chan error)
 	var wg sync.WaitGroup
 	for _, arg := range args {
+		var oldUnit schema.Unit
 		arg = maybeAppendDefaultUnitType(arg)
 		name := unitNameMangle(arg)
 
-		// First, check if there already exists a Unit by the given name in the Registry
-		u, err := cAPI.Unit(name)
+		ret, err := checkUnitCreation(arg, &oldUnit)
 		if err != nil {
-			return fmt.Errorf("error retrieving Unit(%s) from Registry: %v", name, err)
-		}
-		if u != nil {
-			log.Debugf("Found Unit(%s) in Registry, no need to recreate it", name)
-			warnOnDifferentLocalUnit(arg, u)
+			return err
+		} else if ret != 0 {
 			continue
 		}
 
@@ -699,7 +754,7 @@ func lazyCreateUnits(args []string) error {
 			return err
 		}
 
-		_, err = createUnit(name, uf)
+		_, err = createUnit(name, uf, &oldUnit)
 		if err != nil {
 			return err
 		}
@@ -726,24 +781,52 @@ func lazyCreateUnits(args []string) error {
 	return nil
 }
 
-func warnOnDifferentLocalUnit(loc string, su *schema.Unit) {
-	suf := schema.MapSchemaUnitOptionsToUnitFile(su.Options)
-	if _, err := os.Stat(loc); !os.IsNotExist(err) {
-		luf, err := getUnitFromFile(loc)
-		if err == nil && luf.Hash() != suf.Hash() {
-			stderr("WARNING: Unit %s in registry differs from local unit file %s", su.Name, loc)
-			return
+// matchLocalFileAndUnit compares a file with a Unit
+// Returns true if the contents of the file matches the unit one, false
+// otherwise; and any error ocountered
+func matchLocalFileAndUnit(file string, su *schema.Unit) (bool, error) {
+	result := false
+	a := schema.MapSchemaUnitOptionsToUnitFile(su.Options)
+
+	_, err := os.Stat(file)
+	if err == nil {
+		b, err := getUnitFromFile(file)
+		if err == nil {
+			result = unit.MatchUnitFiles(a, b)
 		}
 	}
-	if uni := unit.NewUnitNameInfo(path.Base(loc)); uni != nil && uni.IsInstance() {
-		file := path.Join(path.Dir(loc), uni.Template)
-		if _, err := os.Stat(file); !os.IsNotExist(err) {
-			tmpl, err := getUnitFromFile(file)
-			if err == nil && tmpl.Hash() != suf.Hash() {
-				stderr("WARNING: Unit %s in registry differs from local template unit file %s", su.Name, uni.Template)
-			}
+
+	return result, err
+}
+
+func isLocalUnitDifferent(file string, su *schema.Unit, warnIfDifferent bool, fatal bool) (bool, error) {
+	result, err := matchLocalFileAndUnit(file, su)
+	if err == nil {
+		if result == false && warnIfDifferent {
+			stderr("WARNING: Unit %s in registry differs from local unit file %s", su.Name, file)
 		}
+		return !result, nil
+	} else if fatal {
+		return false, err
 	}
+
+	info := unit.NewUnitNameInfo(path.Base(file))
+	if info == nil {
+		return false, fmt.Errorf("error extracting information from unit name %s", file)
+	} else if !info.IsInstance() {
+		return false, fmt.Errorf("error unit name %s does not seem to be a template unit", file)
+	}
+
+	templFile := path.Join(path.Dir(file), info.Template)
+	result, err = matchLocalFileAndUnit(templFile, su)
+	if err == nil {
+		if result == false && warnIfDifferent {
+			stderr("WARNING: Unit %s in registry differs from local template unit file %s", su.Name, info.Template)
+		}
+		return !result, nil
+	}
+
+	return false, err
 }
 
 func lazyLoadUnits(args []string) ([]*schema.Unit, error) {
