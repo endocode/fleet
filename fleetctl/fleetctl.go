@@ -640,6 +640,14 @@ func createUnit(name string, uf *unit.UnitFile, oldUnit *schema.Unit) (*schema.U
 		return nil, fmt.Errorf("nil unit provided")
 	}
 
+	if sharedFlags.Replace {
+		log.Debugf("createUnit: destroying the existing unit before replacing it")
+		err := cAPI.DestroyUnit(name)
+		if err != nil {
+			log.Errorf("createUnit: cannot destroy unit %v", name)
+		}
+	}
+
 	if oldUnit != nil {
 		oldState = oldUnit.DesiredState
 	}
