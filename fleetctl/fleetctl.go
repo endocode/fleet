@@ -634,20 +634,13 @@ func findUnits(args []string) (sus []schema.Unit, err error) {
 }
 
 func createUnit(name string, uf *unit.UnitFile, oldUnit *schema.Unit) (*schema.Unit, error) {
-	var oldState string
-
 	if uf == nil {
 		return nil, fmt.Errorf("nil unit provided")
-	}
-
-	if oldUnit != nil {
-		oldState = oldUnit.DesiredState
 	}
 
 	u := schema.Unit{
 		Name:    name,
 		Options: schema.MapUnitFileToSchemaUnitOptions(uf),
-		DesiredState: oldState,
 	}
 	// TODO(jonboulle): this dependency on the API package is awkward, and
 	// redundant with the check in api.unitsResource.set, but it is a
