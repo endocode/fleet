@@ -15,6 +15,8 @@
 package functional
 
 import (
+	"fmt"
+	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -223,4 +225,69 @@ func TestUnitSSHActions(t *testing.T) {
 	if !strings.Contains(stdout, "Hello, World!") {
 		t.Errorf("Could not find expected string in journal output:\n%s", stdout)
 	}
+}
+
+// copyFile()
+func copyFile(newFile, oldFile string) error {
+	input, err := ioutil.ReadFile(oldFile)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(newFile, []byte(input), 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// genNewFleetService() is a helper for generating a temporary fleet service
+// that reads from oldFile, replaces oldVal with newVal, and stores the result
+// to newFile.
+func genNewFleetService(newFile, oldFile, newVal, oldVal string) error {
+	input, err := ioutil.ReadFile(oldFile)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(input), "\n")
+
+	for i, line := range lines {
+		if strings.Contains(line, oldVal) {
+			lines[i] = strings.Replace(line, oldVal, newVal, len(oldVal))
+		}
+	}
+	output := strings.Join(lines, "\n")
+	err = ioutil.WriteFile(newFile, []byte(output), 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// destroyUnitRetrying() destroys the unit and ensure it disappears from the
+// unit list. It could take a little time until the unit gets destroyed.
+func destroyUnitRetrying(cluster platform.Cluster, m platform.Member, serviceFile string) error {
+	maxAttempts := 3
+	found := false
+	var stdout string
+	var err error
+	for {
+		if _, _, err := cluster.Fleetctl(m, "destroy", serviceFile); err != nil {
+			return fmt.Errorf("Failed to destroy unit: %v", err)
+		}
+		stdout, _, err = cluster.Fleetctl(m, "list-units", "--no-legend")
+		if err != nil {
+			return fmt.Errorf("Failed to run list-units: %v", err)
+		}
+		if strings.TrimSpace(stdout) == "" || maxAttempts == 0 {
+			found = true
+			break
+		}
+		maxAttempts--
+	}
+
+	if !found {
+		return fmt.Errorf("Did not find 0 units in cluster: \n%s", stdout)
+	}
+
+	return nil
 }
