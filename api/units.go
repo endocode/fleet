@@ -76,6 +76,7 @@ func (ur *unitsResource) set(rw http.ResponseWriter, req *http.Request, item str
 	}
 
 	var su schema.Unit
+	newUnit := false
 	dec := json.NewDecoder(req.Body)
 	err := dec.Decode(&su)
 	if err != nil {
@@ -110,6 +111,21 @@ func (ur *unitsResource) set(rw http.ResponseWriter, req *http.Request, item str
 		} else {
 			ur.create(rw, su.Name, &su)
 		}
+		return
+	} else if eu.Name == su.Name && len(su.Options) > 0 {
+		// There is already a unit with the same name
+		// check the hashes if they do not match then we will
+		// create a new unit with the same name and later
+		// the job will be update to this new unit.
+		// if su.Options == 0 then probably we don't want to update
+		// the Unit options but only its target state.
+		a := schema.MapSchemaUnitOptionsToUnitFile(su.Options)
+		b := schema.MapSchemaUnitOptionsToUnitFile(eu.Options)
+		newUnit = !unit.MatchUnitFiles(a, b)
+	}
+
+	if newUnit {
+		ur.create(rw, su.Name, &su)
 		return
 	}
 

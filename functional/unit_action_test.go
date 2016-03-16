@@ -15,10 +15,20 @@
 package functional
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/coreos/fleet/functional/platform"
+)
+
+const (
+	tmpHelloService = "/tmp/hello.service"
+	fxtHelloService = "fixtures/units/hello.service"
+	tmpFixtures = "/tmp/fixtures"
+	numUnitsReplace = 9
 )
 
 // TestUnitRunnable is the simplest test possible, deplying a single-node
@@ -167,6 +177,42 @@ func TestUnitRestart(t *testing.T) {
 
 }
 
+// TestUnitSubmitReplace() tests whether a command "fleetctl submit --replace
+// hello.service" works or not.
+func TestUnitSubmitReplace(t *testing.T) {
+	if err := replaceUnitCommon("submit"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := replaceUnitMultiple("submit", numUnitsReplace); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestUnitLoadReplace() tests whether a command "fleetctl load --replace
+// hello.service" works or not.
+func TestUnitLoadReplace(t *testing.T) {
+	if err := replaceUnitCommon("load"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := replaceUnitMultiple("load", numUnitsReplace); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestUnitStartReplace() tests whether a command "fleetctl start --replace
+// hello.service" works or not.
+func TestUnitStartReplace(t *testing.T) {
+	if err := replaceUnitCommon("start"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := replaceUnitMultiple("start", numUnitsReplace); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestUnitSSHActions(t *testing.T) {
 	cluster, err := platform.NewNspawnCluster("smoke")
 	if err != nil {
@@ -223,4 +269,241 @@ func TestUnitSSHActions(t *testing.T) {
 	if !strings.Contains(stdout, "Hello, World!") {
 		t.Errorf("Could not find expected string in journal output:\n%s", stdout)
 	}
+}
+
+// replaceUnitCommon() tests whether a command "fleetctl {submit,load,start}
+// --replace hello.service" works or not.
+func replaceUnitCommon(cmd string) error {
+	// check if cmd is one of the supported commands.
+	listCmds := []string{"submit", "load", "start"}
+	found := false
+	for _, ccmd := range listCmds {
+		if ccmd == cmd {
+			found = true
+		}
+	}
+	if !found {
+		return fmt.Errorf("invalid command %s", cmd)
+	}
+
+	cluster, err := platform.NewNspawnCluster("smoke")
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer cluster.Destroy()
+
+	m, err := cluster.CreateMember()
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	_, err = cluster.WaitForNMachines(m, 1)
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+
+	// run a command for a unit and assert it shows up
+	if _, _, err := cluster.Fleetctl(m, cmd, fxtHelloService); err != nil {
+		return fmt.Errorf("Unable to %s fleet unit: %v", cmd, err)
+	}
+	stdout, _, err := cluster.Fleetctl(m, "list-units", "--no-legend")
+	if err != nil {
+		return fmt.Errorf("Failed to run list-units: %v", err)
+	}
+	units := strings.Split(strings.TrimSpace(stdout), "\n")
+	if len(units) != 1 {
+		return fmt.Errorf("Did not find 1 unit in cluster: \n%s", stdout)
+	}
+
+	// replace the unit and assert it shows up
+	err = genNewFleetService(tmpHelloService, fxtHelloService, "sleep 2", "sleep 1")
+	if err != nil {
+		return fmt.Errorf("Failed to generate a temp fleet service: %v", err)
+	}
+	if _, _, err := cluster.Fleetctl(m, cmd, "--replace", tmpHelloService); err != nil {
+		return fmt.Errorf("Unable to replace fleet unit: %v", err)
+	}
+	stdout, _, err = cluster.Fleetctl(m, "list-units", "--no-legend")
+	if err != nil {
+		return fmt.Errorf("Failed to run list-units: %v", err)
+	}
+	units = strings.Split(strings.TrimSpace(stdout), "\n")
+	if len(units) != 1 {
+		return fmt.Errorf("Did not find 1 unit in cluster: \n%s", stdout)
+	}
+	os.Remove(tmpHelloService)
+
+	if err := destroyUnitRetrying(cluster, m, fxtHelloService); err != nil {
+		return fmt.Errorf("Cannot destroy unit %v", fxtHelloService)
+	}
+
+	return nil
+}
+
+// replaceUnitMultiple() tests whether a command "fleetctl {submit,load,start}
+// --replace hello.service" works or not.
+func replaceUnitMultiple(cmd string, n int) error {
+	// check if cmd is one of the supported commands.
+	listCmds := []string{"submit", "load", "start"}
+	found := false
+	for _, ccmd := range listCmds {
+		if ccmd == cmd {
+			found = true
+		}
+	}
+	if !found {
+		return fmt.Errorf("invalid command %s", cmd)
+	}
+
+	var listUnitCmd string
+	if cmd == "submit" {
+		listUnitCmd = "list-unit-files"
+	} else {
+		listUnitCmd = "list-units"
+	}
+
+	cluster, err := platform.NewNspawnCluster("smoke")
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	defer cluster.Destroy()
+
+	m, err := cluster.CreateMember()
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	_, err = cluster.WaitForNMachines(m, 1)
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+
+	if _, err := os.Stat(tmpFixtures); os.IsNotExist(err) {
+		os.Mkdir(tmpFixtures, 0755)
+	}
+
+	var stdout string
+	for i := 1; i <= n; i++ {
+		curHelloService := fmt.Sprintf("/tmp/hello%d.service", i)
+		tmpHelloFixture := fmt.Sprintf("/tmp/fixtures/hello%d.service", i)
+
+		// generate a new service derived by fixtures, and store it under /tmp
+		err = copyFile(tmpHelloFixture, fxtHelloService)
+		if err != nil {
+			return fmt.Errorf("Failed to copy a temp fleet service: %v", err)
+		}
+
+		// run a command for a unit and assert it shows up
+		if _, _, err := cluster.Fleetctl(m, cmd, tmpHelloFixture); err != nil {
+			return fmt.Errorf("Unable to %s fleet unit: %v", cmd, err)
+		}
+
+		stdout, _, err = cluster.Fleetctl(m, listUnitCmd, "--no-legend")
+		if err != nil {
+			return fmt.Errorf("Failed to run %s: %v", listUnitCmd, err)
+		}
+		units := strings.Split(strings.TrimSpace(stdout), "\n")
+		if len(units) != i {
+			return fmt.Errorf("Did not find %d units in cluster: \n%s", i, stdout)
+		}
+
+		// generate a new service derived by fixtures, and store it under /tmp
+		err = genNewFleetService(curHelloService, fxtHelloService, "sleep 2", "sleep 1")
+		if err != nil {
+			return fmt.Errorf("Failed to generate a temp fleet service: %v", err)
+		}
+	}
+
+	for i := 1; i <= n; i++ {
+		curHelloService := fmt.Sprintf("/tmp/hello%d.service", i)
+
+		// replace the unit and assert it shows up
+		if _, _, err = cluster.Fleetctl(m, cmd, "--replace", curHelloService); err != nil {
+			return fmt.Errorf("Unable to replace fleet unit: %v", err)
+		}
+		stdout, _, err = cluster.Fleetctl(m, listUnitCmd, "--no-legend")
+		if err != nil {
+			return fmt.Errorf("Failed to run %s: %v", listUnitCmd, err)
+		}
+		units := strings.Split(strings.TrimSpace(stdout), "\n")
+		if len(units) != n {
+			return fmt.Errorf("Did not find %d units in cluster: \n%s", n, stdout)
+		}
+	}
+
+	// clean up temp services under /tmp
+	for i := 1; i <= n; i++ {
+		curHelloService := fmt.Sprintf("/tmp/hello%d.service", i)
+		os.Remove(curHelloService)
+
+		if err := destroyUnitRetrying(cluster, m, fxtHelloService); err != nil {
+			return fmt.Errorf("Cannot destroy unit %v", fxtHelloService)
+		}
+	}
+	os.Remove(tmpFixtures)
+
+	return nil
+}
+
+// copyFile()
+func copyFile(newFile, oldFile string) error {
+	input, err := ioutil.ReadFile(oldFile)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(newFile, []byte(input), 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// genNewFleetService() is a helper for generating a temporary fleet service
+// that reads from oldFile, replaces oldVal with newVal, and stores the result
+// to newFile.
+func genNewFleetService(newFile, oldFile, newVal, oldVal string) error {
+	input, err := ioutil.ReadFile(oldFile)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(input), "\n")
+
+	for i, line := range lines {
+		if strings.Contains(line, oldVal) {
+			lines[i] = strings.Replace(line, oldVal, newVal, len(oldVal))
+		}
+	}
+	output := strings.Join(lines, "\n")
+	err = ioutil.WriteFile(newFile, []byte(output), 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// destroyUnitRetrying() destroys the unit and ensure it disappears from the
+// unit list. It could take a little time until the unit gets destroyed.
+func destroyUnitRetrying(cluster platform.Cluster, m platform.Member, serviceFile string) error {
+	maxAttempts := 3
+	found := false
+	var stdout string
+	var err error
+	for {
+		if _, _, err := cluster.Fleetctl(m, "destroy", serviceFile); err != nil {
+			return fmt.Errorf("Failed to destroy unit: %v", err)
+		}
+		stdout, _, err = cluster.Fleetctl(m, "list-units", "--no-legend")
+		if err != nil {
+			return fmt.Errorf("Failed to run list-units: %v", err)
+		}
+		if strings.TrimSpace(stdout) == "" || maxAttempts == 0 {
+			found = true
+			break
+		}
+		maxAttempts--
+	}
+
+	if !found {
+		return fmt.Errorf("Did not find 0 units in cluster: \n%s", stdout)
+	}
+
+	return nil
 }
