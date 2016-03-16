@@ -78,6 +78,7 @@ var (
 		Debug   bool
 		Version bool
 		Help    bool
+		currentCommand	string
 
 		ClientDriver    string
 		ExperimentalAPI bool
@@ -103,6 +104,7 @@ var (
 		Full          bool
 		NoLegend      bool
 		NoBlock       bool
+		Replace       bool
 		BlockAttempts int
 		Fields        string
 		SSHPort       int
@@ -286,6 +288,10 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+	// We use this to know in which context are we:
+	// submit, load or start
+	globalFlags.currentCommand = cmd.Name
 
 	os.Exit(cmd.Run(cmd.Flags.Args()))
 
