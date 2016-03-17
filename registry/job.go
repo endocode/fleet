@@ -335,14 +335,13 @@ func (r *EtcdRegistry) CreateUnit(u *job.Unit) (err error) {
 	}
 
 	opts := &etcd.SetOptions{
-		PrevExist: etcd.PrevNoExist,
+		// Since we support replacing Unit state just ignore
+		// previous keys.
+		PrevExist: etcd.PrevIgnore,
 	}
 	key := r.prefixed(jobPrefix, u.Name, "object")
 	_, err = r.kAPI.Set(r.ctx(), key, val, opts)
 	if err != nil {
-		if isEtcdError(err, etcd.ErrorCodeNodeExist) {
-			err = errors.New("job already exists")
-		}
 		return
 	}
 
