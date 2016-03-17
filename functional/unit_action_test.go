@@ -313,6 +313,9 @@ func replaceUnitCommon(cmd string) error {
 	if len(units) != 1 {
 		return fmt.Errorf("Did not find 1 unit in cluster: \n%s", stdout)
 	}
+	if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, 1); err != nil {
+		return err
+	}
 
 	// replace the unit and assert it shows up
 	err = genNewFleetService(tmpHelloService, fxtHelloService, "sleep 2", "sleep 1")
@@ -329,6 +332,9 @@ func replaceUnitCommon(cmd string) error {
 	units = strings.Split(strings.TrimSpace(stdout), "\n")
 	if len(units) != 1 {
 		return fmt.Errorf("Did not find 1 unit in cluster: \n%s", stdout)
+	}
+	if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, 1); err != nil {
+		return err
 	}
 	os.Remove(tmpHelloService)
 
@@ -397,6 +403,9 @@ func replaceUnitMultiple(cmd string, n int) error {
 		if len(units) != i {
 			return fmt.Errorf("Did not find %d units in cluster: \n%s", i, stdout)
 		}
+		if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, i); err != nil {
+			return err
+		}
 
 		// generate a new service derived by fixtures, and store it under /tmp
 		err = genNewFleetService(curHelloService, fxtHelloService, "sleep 2", "sleep 1")
@@ -419,6 +428,9 @@ func replaceUnitMultiple(cmd string, n int) error {
 		units := strings.Split(strings.TrimSpace(stdout), "\n")
 		if len(units) != n {
 			return fmt.Errorf("Did not find %d units in cluster: \n%s", n, stdout)
+		}
+		if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, i); err != nil {
+			return err
 		}
 	}
 
@@ -469,6 +481,35 @@ func genNewFleetService(newFile, oldFile, newVal, oldVal string) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+// waitForActiveUnitsReplaceCmds() is a wrapper for waiting for N active units.
+// The expected number of active units are given as a parameter "count".
+// If cmd is "start", it expects that "count" active units are active.
+// Otherwise, for "load" or "submit", it expects no active unit.
+func waitForActiveUnitsReplaceCmds(cluster platform.Cluster, m platform.Member, cmd string, count int) error {
+	if cmd == "start" {
+		units, err := cluster.WaitForNActiveUnits(m, count)
+		if err != nil {
+			fmt.Errorf("%v", err)
+		}
+		_, found := units["hello.service"]
+		if len(units) != count || !found {
+			fmt.Errorf("Expected hello.service to be sole active unit, got %v", units)
+		}
+	} else {
+		// cmd is "load" or "submit", then there's no active unit
+		units, err := cluster.WaitForNActiveUnits(m, 0)
+		if err != nil {
+			fmt.Errorf("%v", err)
+		}
+		_, found := units["hello.service"]
+		if len(units) != 0 || !found {
+			fmt.Errorf("Expected hello.service to be sole active unit, got %v", units)
+		}
+	}
+
 	return nil
 }
 
