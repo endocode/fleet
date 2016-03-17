@@ -33,6 +33,7 @@ Submit a directory of units with glob matching:
 
 func init() {
 	cmdSubmitUnit.Flags.BoolVar(&sharedFlags.Sign, "sign", false, "DEPRECATED - this option cannot be used")
+	cmdSubmitUnit.Flags.BoolVar(&sharedFlags.Replace, "replace", false, "Replace the old submitted unit with a new one.")
 }
 
 func runSubmitUnits(args []string) (exit int) {
