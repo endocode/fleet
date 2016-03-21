@@ -313,9 +313,6 @@ func replaceUnitCommon(cmd string) error {
 	if len(units) != 1 {
 		return fmt.Errorf("Did not find 1 unit in cluster: \n%s", stdout)
 	}
-	if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, 1); err != nil {
-		return err
-	}
 
 	// replace the unit and assert it shows up
 	err = genNewFleetService(tmpHelloService, fxtHelloService, "sleep 2", "sleep 1")
@@ -333,13 +330,14 @@ func replaceUnitCommon(cmd string) error {
 	if len(units) != 1 {
 		return fmt.Errorf("Did not find 1 unit in cluster: \n%s", stdout)
 	}
-	if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, 1); err != nil {
-		return err
-	}
 	os.Remove(tmpHelloService)
 
 	if err := destroyUnitRetrying(cluster, m, fxtHelloService); err != nil {
 		return fmt.Errorf("Cannot destroy unit %v", fxtHelloService)
+	}
+
+	if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, 0); err != nil {
+		return err
 	}
 
 	return nil
@@ -403,9 +401,6 @@ func replaceUnitMultiple(cmd string, n int) error {
 		if len(units) != i {
 			return fmt.Errorf("Did not find %d units in cluster: \n%s", i, stdout)
 		}
-		if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, i); err != nil {
-			return err
-		}
 
 		// generate a new service derived by fixtures, and store it under /tmp
 		err = genNewFleetService(curHelloService, fxtHelloService, "sleep 2", "sleep 1")
@@ -429,9 +424,6 @@ func replaceUnitMultiple(cmd string, n int) error {
 		if len(units) != n {
 			return fmt.Errorf("Did not find %d units in cluster: \n%s", n, stdout)
 		}
-		if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, i); err != nil {
-			return err
-		}
 	}
 
 	// clean up temp services under /tmp
@@ -444,6 +436,10 @@ func replaceUnitMultiple(cmd string, n int) error {
 		}
 	}
 	os.Remove(tmpFixtures)
+
+	if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, 0); err != nil {
+		return err
+	}
 
 	return nil
 }
