@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"strings"
 	"testing"
 
@@ -314,6 +315,14 @@ func replaceUnitCommon(cmd string) error {
 		return fmt.Errorf("Did not find 1 unit in cluster: \n%s", stdout)
 	}
 
+	helloFilename := path.Base(tmpHelloService)
+
+	// store content of hello.service to bodyOrig
+	bodyOrig, _, err := cluster.Fleetctl(m, "cat", helloFilename)
+	if err != nil {
+		return fmt.Errorf("Failed to run cat %s: %v", helloFilename, err)
+	}
+
 	// replace the unit and assert it shows up
 	err = genNewFleetService(tmpHelloService, fxtHelloService, "sleep 2", "sleep 1")
 	if err != nil {
@@ -330,6 +339,17 @@ func replaceUnitCommon(cmd string) error {
 	if len(units) != 1 {
 		return fmt.Errorf("Did not find 1 unit in cluster: \n%s", stdout)
 	}
+
+	// store content of the replaced unit hello.service to bodyNew
+	bodyNew, _, err := cluster.Fleetctl(m, "cat", helloFilename)
+	if err != nil {
+		return fmt.Errorf("Failed to run cat %s: %v", helloFilename, err)
+	}
+
+	if bodyOrig == bodyNew {
+		return fmt.Errorf("Error. the unit %s has not been replaced.", helloFilename)
+	}
+
 	os.Remove(tmpHelloService)
 
 	if err := destroyUnitRetrying(cluster, m, fxtHelloService); err != nil {
@@ -378,6 +398,7 @@ func replaceUnitMultiple(cmd string, n int) error {
 	}
 
 	var stdout string
+	var bodiesOrig []string
 	for i := 1; i <= n; i++ {
 		curHelloService := fmt.Sprintf("/tmp/hello%d.service", i)
 		tmpHelloFixture := fmt.Sprintf("/tmp/fixtures/hello%d.service", i)
@@ -402,6 +423,16 @@ func replaceUnitMultiple(cmd string, n int) error {
 			return fmt.Errorf("Did not find %d units in cluster: \n%s", i, stdout)
 		}
 
+		helloFilename := path.Base(curHelloService)
+
+		// retrieve content of hello.service, and append to bodiesOrig[]
+		bodyCur, _, err := cluster.Fleetctl(m, "cat", helloFilename)
+		if err != nil {
+			return fmt.Errorf("Failed to run cat %s: %v", helloFilename, err)
+		}
+
+		bodiesOrig = append(bodiesOrig, bodyCur)
+
 		// generate a new service derived by fixtures, and store it under /tmp
 		err = genNewFleetService(curHelloService, fxtHelloService, "sleep 2", "sleep 1")
 		if err != nil {
@@ -423,6 +454,19 @@ func replaceUnitMultiple(cmd string, n int) error {
 		units := strings.Split(strings.TrimSpace(stdout), "\n")
 		if len(units) != n {
 			return fmt.Errorf("Did not find %d units in cluster: \n%s", n, stdout)
+		}
+
+		helloFilename := path.Base(curHelloService)
+
+		// retrieve content of hello.service, and compare it with the
+		// correspondent entry in bodiesOrig[]
+		bodyCur, _, err := cluster.Fleetctl(m, "cat", helloFilename)
+		if err != nil {
+			return fmt.Errorf("Failed to run cat %s: %v", helloFilename, err)
+		}
+
+		if bodiesOrig[i-1] == bodyCur {
+			return fmt.Errorf("Error. the unit %s has not been replaced.", helloFilename)
 		}
 	}
 
