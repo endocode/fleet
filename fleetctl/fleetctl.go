@@ -809,16 +809,6 @@ func lazyCreateUnits(args []string) error {
 	return nil
 }
 
-// matchUnitFiles compares two unitFiles
-// Returns true if the units match, false otherwise.
-func matchUnitFiles(a *unit.UnitFile, b *unit.UnitFile) bool {
-	if a.Hash() == b.Hash() {
-		return true
-	}
-
-	return false
-}
-
 // matchLocalFileAndUnit compares a file with a Unit
 // Returns true if the contents of the file matches the unit one, false
 // otherwise; and any error encountered.
@@ -830,7 +820,7 @@ func matchLocalFileAndUnit(file string, su *schema.Unit) (bool, error) {
 	if err == nil {
 		b, err := getUnitFromFile(file)
 		if err == nil {
-			result = matchUnitFiles(a, b)
+			result = unit.MatchUnitFiles(a, b)
 		}
 	}
 
