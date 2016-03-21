@@ -104,6 +104,31 @@ func (nc *nspawnCluster) FleetctlWithInput(m Member, input string, args ...strin
 	return util.RunFleetctlWithInput(input, args...)
 }
 
+func (nc *nspawnCluster) WaitForNAllUnits(m Member, count int) error {
+	timeout := 15 * time.Second
+	alarm := time.After(timeout)
+
+	ticker := time.Tick(250 * time.Millisecond)
+loop:
+	for {
+		select {
+		case <-alarm:
+			return fmt.Errorf("failed to find %d units within %v", count, timeout)
+		case <-ticker:
+			stdout, _, err := nc.Fleetctl(m, "list-units", "--no-legend")
+			if err != nil {
+				continue
+			}
+			units := strings.Split(strings.TrimSpace(stdout), "\n")
+			if (count == 0 && len(stdout) == 0) || len(units) == count {
+				break loop
+			}
+		}
+	}
+
+	return nil
+}
+
 func (nc *nspawnCluster) WaitForNActiveUnits(m Member, count int) (map[string][]util.UnitState, error) {
 	var nactive int
 	states := make(map[string][]util.UnitState)

@@ -352,8 +352,12 @@ func replaceUnitCommon(cmd string) error {
 
 	os.Remove(tmpHelloService)
 
-	if err := destroyUnitRetrying(cluster, m, fxtHelloService); err != nil {
-		return fmt.Errorf("Cannot destroy unit %v", fxtHelloService)
+	if _, _, err := cluster.Fleetctl(m, "destroy", fxtHelloService); err != nil {
+		return fmt.Errorf("Failed to destroy unit: %v", err)
+	}
+
+	if err := cluster.WaitForNAllUnits(m, 0); err != nil {
+		return fmt.Errorf("Failed to get every unit to be cleaned up: %v", err)
 	}
 
 	if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, 0); err != nil {
@@ -473,12 +477,19 @@ func replaceUnitMultiple(cmd string, n int) error {
 	// clean up temp services under /tmp
 	for i := 1; i <= n; i++ {
 		curHelloService := fmt.Sprintf("/tmp/hello%d.service", i)
-		os.Remove(curHelloService)
 
-		if err := destroyUnitRetrying(cluster, m, fxtHelloService); err != nil {
-			return fmt.Errorf("Cannot destroy unit %v", fxtHelloService)
+		if _, _, err := cluster.Fleetctl(m, "destroy", curHelloService); err != nil {
+			fmt.Printf("Failed to destroy unit: %v", err)
+			continue
 		}
+
+		os.Remove(curHelloService)
 	}
+
+	if err := cluster.WaitForNAllUnits(m, 0); err != nil {
+		return fmt.Errorf("Failed to get every unit to be cleaned up: %v", err)
+	}
+
 	os.Remove(tmpFixtures)
 
 	if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, 0); err != nil {
@@ -548,35 +559,6 @@ func waitForActiveUnitsReplaceCmds(cluster platform.Cluster, m platform.Member, 
 		if len(units) != 0 || !found {
 			fmt.Errorf("Expected hello.service to be sole active unit, got %v", units)
 		}
-	}
-
-	return nil
-}
-
-// destroyUnitRetrying() destroys the unit and ensure it disappears from the
-// unit list. It could take a little time until the unit gets destroyed.
-func destroyUnitRetrying(cluster platform.Cluster, m platform.Member, serviceFile string) error {
-	maxAttempts := 3
-	found := false
-	var stdout string
-	var err error
-	for {
-		if _, _, err := cluster.Fleetctl(m, "destroy", serviceFile); err != nil {
-			return fmt.Errorf("Failed to destroy unit: %v", err)
-		}
-		stdout, _, err = cluster.Fleetctl(m, "list-units", "--no-legend")
-		if err != nil {
-			return fmt.Errorf("Failed to run list-units: %v", err)
-		}
-		if strings.TrimSpace(stdout) == "" || maxAttempts == 0 {
-			found = true
-			break
-		}
-		maxAttempts--
-	}
-
-	if !found {
-		return fmt.Errorf("Did not find 0 units in cluster: \n%s", stdout)
 	}
 
 	return nil
