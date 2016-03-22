@@ -104,7 +104,7 @@ func (nc *nspawnCluster) FleetctlWithInput(m Member, input string, args ...strin
 	return util.RunFleetctlWithInput(input, args...)
 }
 
-func (nc *nspawnCluster) WaitForNAllUnits(m Member, count int) error {
+func (nc *nspawnCluster) WaitForNUnits(m Member, count int) error {
 	timeout := 15 * time.Second
 	alarm := time.After(timeout)
 

@@ -356,12 +356,8 @@ func replaceUnitCommon(cmd string) error {
 		return fmt.Errorf("Failed to destroy unit: %v", err)
 	}
 
-	if err := cluster.WaitForNAllUnits(m, 0); err != nil {
+	if err := cluster.WaitForNUnits(m, 0); err != nil {
 		return fmt.Errorf("Failed to get every unit to be cleaned up: %v", err)
-	}
-
-	if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, 0); err != nil {
-		return err
 	}
 
 	return nil
@@ -486,15 +482,11 @@ func replaceUnitMultiple(cmd string, n int) error {
 		os.Remove(curHelloService)
 	}
 
-	if err := cluster.WaitForNAllUnits(m, 0); err != nil {
+	if err := cluster.WaitForNUnits(m, 0); err != nil {
 		return fmt.Errorf("Failed to get every unit to be cleaned up: %v", err)
 	}
 
 	os.Remove(tmpFixtures)
-
-	if err := waitForActiveUnitsReplaceCmds(cluster, m, cmd, 0); err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -532,34 +524,5 @@ func genNewFleetService(newFile, oldFile, newVal, oldVal string) error {
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-// waitForActiveUnitsReplaceCmds() is a wrapper for waiting for N active units.
-// The expected number of active units are given as a parameter "count".
-// If cmd is "start", it expects that "count" active units are active.
-// Otherwise, for "load" or "submit", it expects no active unit.
-func waitForActiveUnitsReplaceCmds(cluster platform.Cluster, m platform.Member, cmd string, count int) error {
-	if cmd == "start" {
-		units, err := cluster.WaitForNActiveUnits(m, count)
-		if err != nil {
-			fmt.Errorf("%v", err)
-		}
-		_, found := units["hello.service"]
-		if len(units) != count || !found {
-			fmt.Errorf("Expected hello.service to be sole active unit, got %v", units)
-		}
-	} else {
-		// cmd is "load" or "submit", then there's no active unit
-		units, err := cluster.WaitForNActiveUnits(m, 0)
-		if err != nil {
-			fmt.Errorf("%v", err)
-		}
-		_, found := units["hello.service"]
-		if len(units) != 0 || !found {
-			fmt.Errorf("Expected hello.service to be sole active unit, got %v", units)
-		}
-	}
-
 	return nil
 }
