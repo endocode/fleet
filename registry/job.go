@@ -117,6 +117,7 @@ func (r *EtcdRegistry) Units() ([]job.Unit, error) {
 		return unit
 	}
 
+	var sortable sort.StringSlice
 	uMap := make(map[string]*job.Unit)
 	for _, dir := range res.Node.Nodes {
 		u, err := r.dirToUnit(dir, unitHashLookupFunc)
@@ -127,18 +128,21 @@ func (r *EtcdRegistry) Units() ([]job.Unit, error) {
 		if u == nil {
 			continue
 		}
+		// Just a guard
+		_, ok := uMap[u.Name]
+		if ok {
+			continue
+		}
+
 		uMap[u.Name] = u
+		sortable = append(sortable, u.Name)
 	}
 
-	var sortable sort.StringSlice
-	for name, _ := range uMap {
-		sortable = append(sortable, name)
-	}
 	sortable.Sort()
 
 	units := make([]job.Unit, 0, len(sortable))
-	for _, name := range sortable {
-		units = append(units, *uMap[name])
+	for i, name := range sortable {
+		units[i] = *uMap[name]
 	}
 
 	return units, nil
