@@ -140,7 +140,7 @@ func (r *EtcdRegistry) Units() ([]job.Unit, error) {
 
 	sortable.Sort()
 
-	units := make([]job.Unit, 0, len(sortable))
+	units := make([]job.Unit, len(sortable))
 	for i, name := range sortable {
 		units[i] = *uMap[name]
 	}
