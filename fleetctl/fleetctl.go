@@ -747,7 +747,7 @@ func checkUnitCreation(arg string) (int, error) {
 		// if sharedFlags.Replace is not set then we ignore
 		// errors
 		if different {
-			stderr("To replace Unit(%s) please add the 'replace' switch", name)
+			stderr("WARNING: to replace Unit(%s) please add the 'replace' switch", name)
 		} else {
 			log.Debugf("Found same Unit(%s) in Registry, no need to recreate it", name)
 		}
