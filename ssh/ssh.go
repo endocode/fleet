@@ -73,42 +73,49 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 	fmt.Print("Opening pipe\n")
 	//session.Stdin = sshReader
 	sshStdin, err := session.StdinPipe()
-	tee := io.TeeReader(os.Stdin, sshStdin)
+	//tee := io.TeeReader(os.Stdin, sshStdin)
 	if err != nil {
 		session.Close()
 		return
 	}
 
+	quit := make(chan bool)
+
 	go func() {
 		buf := make([]byte, 32*1024)
-//		buf := make([]byte, 1)
-		for {
-			fmt.Print("prepare to read\n")
-			nr, er := tee.Read(buf)
-			fmt.Printf("read done: %d bytes\n", nr)
-			if nr > 0 {
-				fmt.Print("prepare to write\n")
-				nw, ew := sshStdin.Write(buf[0:nr])
-				fmt.Printf("write done: %d bytes\n", nw)
-				if ew != nil {
-					fmt.Print("interrupt ew != nil\n")
-					err = ew
+		select {
+		case <- quit:
+			fmt.Print("Got quit signal\n")
+			return
+		default:
+			for {
+				fmt.Print("prepare to read\n")
+				nr, er := os.Stdin.Read(buf)
+				fmt.Printf("read done: %d bytes\n", nr)
+				if nr > 0 {
+					fmt.Print("prepare to write\n")
+					nw, ew := sshStdin.Write(buf[0:nr])
+					fmt.Printf("write done: %d bytes\n", nw)
+					if ew != nil {
+						fmt.Print("interrupt ew != nil\n")
+						err = ew
+						break
+					}
+					if nr != nw {
+						fmt.Print("interrupt nr != nw\n")
+						err = io.ErrShortWrite
+						break
+					}
+				}
+				if er == io.EOF {
+					fmt.Print("interrupt EOF\n")
 					break
 				}
-				if nr != nw {
-					fmt.Print("interrupt nr != nw\n")
-					err = io.ErrShortWrite
+				if er != nil {
+					fmt.Print("interrupt er != nil\n")
+					err = er
 					break
 				}
-			}
-			if er == io.EOF {
-				fmt.Print("interrupt EOF\n")
-				break
-			}
-			if er != nil {
-				fmt.Print("interrupt er != nil\n")
-				err = er
-				break
 			}
 		}
 		fmt.Print("Closed in ssh/ssh.go\n")
@@ -135,6 +142,7 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 		finalize = func() {
 			fmt.Print("Close session\n")
 			sshStdin.Close()
+			quit <- true
 			session.Close()
 			terminal.Restore(fd, oldState)
 		}
@@ -149,6 +157,7 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 		finalize = func() {
 			fmt.Print("Close session\n")
 			sshStdin.Close()
+			quit <- true
 			session.Close()
 		}
 	}
