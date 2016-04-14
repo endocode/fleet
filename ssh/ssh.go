@@ -86,7 +86,7 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 			select {
 				case <- quit:
 				fmt.Print("Got quit signal\n")
-				break
+				return
 			default:
 				nr, er := teein.Read(buf)
 				//nr, er := os.Stdin.Read(buf)
@@ -141,7 +141,12 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 		finalize = func() {
 			fmt.Print("Close session\n")
 			stdin.Close()
+			fmt.Print("Sendin quit\n")
 			quit <- true
+			fmt.Print("Closing channel\n")
+			close(quit)
+			fmt.Print("Closed channel, send newline\n")
+			fmt.Fprint(os.Stdin,"\n")
 			session.Close()
 			terminal.Restore(fd, oldState)
 		}
@@ -155,8 +160,10 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 	} else {
 		finalize = func() {
 			fmt.Print("Close session\n")
+			fmt.Fprint(os.Stdin,"\n")
 			stdin.Close()
 			quit <- true
+			close(quit)
 			session.Close()
 		}
 	}
