@@ -73,6 +73,7 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 	fmt.Print("Opening pipe\n")
 	//session.Stdin = sshReader
 	sshStdin, err := session.StdinPipe()
+	tee := io.TeeReader(os.Stdin, sshStdin)
 	if err != nil {
 		session.Close()
 		return
@@ -80,9 +81,10 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 
 	go func() {
 		buf := make([]byte, 32*1024)
+//		buf := make([]byte, 1)
 		for {
 			fmt.Print("prepare to read\n")
-			nr, er := os.Stdin.Read(buf)
+			nr, er := tee.Read(buf)
 			fmt.Printf("read done: %d bytes\n", nr)
 			if nr > 0 {
 				fmt.Print("prepare to write\n")
