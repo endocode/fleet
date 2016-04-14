@@ -497,7 +497,6 @@ type sessionStdin struct {
 }
 
 func (s *sessionStdin) Close() error {
-	s.ch.Close()
 	return s.ch.CloseWrite()
 }
 

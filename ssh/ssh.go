@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	gossh "github.com/coreos/fleet/Godeps/_workspace/src/golang.org/x/crypto/ssh"
@@ -56,6 +57,53 @@ func newSSHForwardingClient(client *gossh.Client, agentForwarding bool) (*SSHFor
 	return &SSHForwardingClient{agentForwarding, client}, nil
 }
 
+type tSshStdin struct {
+  rc           io.ReadCloser
+  mu           sync.Mutex        // guards following 4 fields
+  closed       bool              // whether Close has been called
+  rerr         error             // sticky Read error
+}
+
+func (t *tSshStdin) Close() error {
+	fmt.Print("Custom close\n")
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.closed {
+		return nil
+	}
+	t.closed = true
+	err := t.rc.Close()
+	return err
+}
+
+func (t *tSshStdin) Read(p []byte) (n int, err error) {
+	t.mu.Lock()
+	closed, rerr := t.closed, t.rerr
+	t.mu.Unlock()
+	fmt.Print("Custom read start\n")
+	if closed {
+		return 0, errors.New("read on closed response body")
+	}
+	if rerr != nil {
+		return 0, rerr
+	}
+
+	n, err = t.rc.Read(p)
+	fmt.Print("Custom read end\n")
+	if err != nil {
+		t.mu.Lock()
+		defer t.mu.Unlock()
+		if t.rerr == nil {
+			t.rerr = err
+		}
+	}
+	return
+}
+
+func sshStdin(r io.ReadCloser) io.ReadCloser {
+	return &tSshStdin{rc: r}
+}
+
 // makeSession initializes a gossh.Session connected to the invoking process's stdout/stderr/stdout.
 // If the invoking session is a terminal, a TTY will be requested for the SSH session.
 // It returns a gossh.Session, a finalizing function used to clean up after the session terminates,
@@ -72,65 +120,41 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
 	stdin, err := session.StdinPipe()
-	teein := ioutil.NopCloser(io.TeeReader(os.Stdin, stdin))
+	readerCloser := sshStdin(ioutil.NopCloser(os.Stdin))
 	if err != nil {
 		session.Close()
 		return
 	}
 
-	quit := make(chan bool)
-	unblocked := make(chan bool)
-
-	unblocker := func() {
-		for {
-			select {
-			case <- unblocked:
-				fmt.Print("Unblock exited\n")
-				return
-			default:
-				fmt.Fprint(os.Stdin,"\n") //trying to unblock Read(buf) below
-				continue
-			}
-		}
-	}
-
 	go func() {
 		buf := make([]byte, 32*1024)
 		for {
-			fmt.Print("prepare to read\n")
-			select {
-			case <- quit:
-				//fmt.Fprint(os.Stdin,"\n") //trying to unblock Read(buf) below
-				fmt.Print("Got quit signal\n")
-				return
-			default:
-				nr, er := teein.Read(buf)
-				//nr, er := os.Stdin.Read(buf)
-				fmt.Printf("read done: %d bytes\n", nr)
-				if nr > 0 {
-					fmt.Print("prepare to write\n")
-					nw, ew := stdin.Write(buf[0:nr])
-					fmt.Printf("write done: %d bytes\n", nw)
-					if ew != nil {
-						fmt.Print("interrupt ew != nil\n")
-						err = ew
-						break
-					}
-					if nr != nw {
-						fmt.Print("interrupt nr != nw\n")
-						err = io.ErrShortWrite
-						break
-					}
-				}
-				if er == io.EOF {
-					fmt.Print("interrupt EOF\n")
+			nr, er := readerCloser.Read(buf)
+			//nr, er := os.Stdin.Read(buf)
+			fmt.Printf("read done: %d bytes\n", nr)
+			if nr > 0 {
+				fmt.Print("prepare to write\n")
+				nw, ew := stdin.Write(buf[0:nr])
+				fmt.Printf("write done: %d bytes\n", nw)
+				if ew != nil {
+					fmt.Print("interrupt ew != nil\n")
+					err = ew
 					break
 				}
-				if er != nil {
-					fmt.Print("interrupt er != nil\n")
-					err = er
+				if nr != nw {
+					fmt.Print("interrupt nr != nw\n")
+					err = io.ErrShortWrite
 					break
 				}
+			}
+			if er == io.EOF {
+				fmt.Print("interrupt EOF\n")
+				break
+			}
+			if er != nil {
+				fmt.Print("interrupt er != nil\n")
+				err = er
+				break
 			}
 		}
 		fmt.Print("Goroutine was closed\n")
@@ -155,17 +179,11 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 		}
 
 		finalize = func() {
-			fmt.Print("Close session\n")
-			teein.Close()
+			fmt.Print("Close reader\n")
+			readerCloser.Close()
+			fmt.Print("Close stdin\n")
 			stdin.Close()
-			fmt.Print("Sendin quit\n")
-			go unblocker()
-			quit <- true
-			unblocked <- true
-			fmt.Print("Closing channel\n")
-			close(quit)
-			fmt.Print("Closed channel, send newline\n")
-			fmt.Fprint(os.Stdin,"\n")
+			fmt.Print("Close session\n")
 			session.Close()
 			terminal.Restore(fd, oldState)
 		}
@@ -179,10 +197,8 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 	} else {
 		finalize = func() {
 			fmt.Print("Close session\n")
-			fmt.Fprint(os.Stdin,"\n")
+			readerCloser.Close()
 			stdin.Close()
-			quit <- true
-			close(quit)
 			session.Close()
 		}
 	}
