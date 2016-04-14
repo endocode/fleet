@@ -378,9 +378,11 @@ func (s *Session) Wait() error {
 		return errors.New("ssh: session not started")
 	}
 	waitErr := <-s.exitStatus
-
+	fmt.Printf("s.stdinPipeWriter: %#v\n", s.stdinPipeWriter)
 	if s.stdinPipeWriter != nil {
+		fmt.Print("Close s.stdinPipeWriter\n")
 		s.stdinPipeWriter.Close()
+		fmt.Print("Closed s.stdinPipeWriter\n")
 	}
 	var copyError error
 	for _ = range s.copyFuncs {
@@ -443,6 +445,7 @@ func (s *Session) wait(reqs <-chan *Request) error {
 
 func (s *Session) stdin() {
 	if s.stdinpipe {
+		fmt.Print("Pipe is here\n")
 		return
 	}
 	var stdin io.Reader
@@ -451,7 +454,9 @@ func (s *Session) stdin() {
 	} else {
 		r, w := io.Pipe()
 		go func() {
+			fmt.Print("Starting\n")
 			_, err := io.Copy(w, s.Stdin)
+			fmt.Print("Closed!\n")
 			w.CloseWithError(err)
 		}()
 		stdin, s.stdinPipeWriter = r, w
@@ -498,6 +503,7 @@ type sessionStdin struct {
 }
 
 func (s *sessionStdin) Close() error {
+	s.ch.Close()
 	return s.ch.CloseWrite()
 }
 

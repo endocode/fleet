@@ -18,6 +18,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -69,9 +70,47 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
+	fmt.Print("Opening pipe\n")
+	//session.Stdin = sshReader
+	sshStdin, err := session.StdinPipe()
+	if err != nil {
+		session.Close()
+		return
+	}
 
-	sshReader, sshWriter := io.Pipe()
-	session.Stdin = sshReader
+	go func() {
+		buf := make([]byte, 32*1024)
+		for {
+			fmt.Print("prepare to read\n")
+			nr, er := os.Stdin.Read(buf)
+			fmt.Printf("read done: %d bytes\n", nr)
+			if nr > 0 {
+				fmt.Print("prepare to write\n")
+				nw, ew := sshStdin.Write(buf[0:nr])
+				fmt.Printf("write done: %d bytes\n", nw)
+				if ew != nil {
+					fmt.Print("interrupt ew != nil\n")
+					err = ew
+					break
+				}
+				if nr != nw {
+					fmt.Print("interrupt nr != nw\n")
+					err = io.ErrShortWrite
+					break
+				}
+			}
+			if er == io.EOF {
+				fmt.Print("interrupt EOF\n")
+				break
+			}
+			if er != nil {
+				fmt.Print("interrupt er != nil\n")
+				err = er
+				break
+			}
+		}
+		fmt.Print("Closed in ssh/ssh.go\n")
+	}()
 
 	modes := gossh.TerminalModes{
 		gossh.ECHO:          1,     // enable echoing
@@ -92,9 +131,9 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 		}
 
 		finalize = func() {
+			fmt.Print("Close session\n")
+			sshStdin.Close()
 			session.Close()
-			sshReader.Close()
-			sshWriter.Close()
 			terminal.Restore(fd, oldState)
 		}
 
@@ -106,9 +145,9 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 		err = session.RequestPty("xterm-256color", termHeight, termWidth, modes)
 	} else {
 		finalize = func() {
+			fmt.Print("Close session\n")
+			sshStdin.Close()
 			session.Close()
-			sshReader.Close()
-			sshWriter.Close()
 		}
 	}
 

@@ -63,6 +63,7 @@ func askToTrustHost(addr, algo, fingerprint string) bool {
 	fmt.Scanf("%s\n", &ans)
 
 	ans = strings.ToLower(ans)
+	fmt.Fprintf(os.Stderr, "ans: %s\n",ans)
 	if ans != "yes" && ans != "y" {
 		return false
 	}
