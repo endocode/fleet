@@ -78,13 +78,28 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 	}
 
 	quit := make(chan bool)
+	unblocked := make(chan bool)
+
+	unblocker := func() {
+		for {
+			select {
+			case <- unblocked:
+				fmt.Print("Unblock exited\n")
+				return
+			default:
+				fmt.Fprint(os.Stdin,"\n") //trying to unblock Read(buf) below
+				continue
+			}
+		}
+	}
 
 	go func() {
 		buf := make([]byte, 32*1024)
 		for {
 			fmt.Print("prepare to read\n")
 			select {
-				case <- quit:
+			case <- quit:
+				//fmt.Fprint(os.Stdin,"\n") //trying to unblock Read(buf) below
 				fmt.Print("Got quit signal\n")
 				return
 			default:
@@ -142,7 +157,9 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 			fmt.Print("Close session\n")
 			stdin.Close()
 			fmt.Print("Sendin quit\n")
+			go unblocker()
 			quit <- true
+			unblocked <- true
 			fmt.Print("Closing channel\n")
 			close(quit)
 			fmt.Print("Closed channel, send newline\n")
