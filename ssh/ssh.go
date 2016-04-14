@@ -20,6 +20,7 @@ import (
 	"os"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strconv"
 	"strings"
 	"time"
@@ -71,7 +72,7 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
 	stdin, err := session.StdinPipe()
-	teein := io.TeeReader(os.Stdin, stdin)
+	teein := ioutil.NopCloser(io.TeeReader(os.Stdin, stdin))
 	if err != nil {
 		session.Close()
 		return
@@ -155,6 +156,7 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 
 		finalize = func() {
 			fmt.Print("Close session\n")
+			teein.Close()
 			stdin.Close()
 			fmt.Print("Sendin quit\n")
 			go unblocker()
