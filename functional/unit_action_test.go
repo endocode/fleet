@@ -15,9 +15,11 @@
 package functional
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -427,52 +429,41 @@ func TestListUnitFilesOrder(t *testing.T) {
 
 	// Combine units
 	var units []string
-	for i := 1; i <= 50; i++ {
-		args = append(units, fmt.Sprint("fixtures/units/hello@%d.service", i))
-	}
-
-	stdout, stderr, err = cluster.Fleetctl(m, "start", units...)
-	if err != nil {
-		t.Fatalf("Failed to start a batch of units: \nstdout: %s\nstder: %s\nerr: %v", stdout, stderr, err)
+	for i := 1; i <= 20; i++ {
+		unit := fmt.Sprintf("fixtures/units/hello@%d.service", i)
+		stdout, stderr, err := cluster.Fleetctl(m, "load", unit)
+		if err != nil {
+			t.Fatalf("Failed to load a batch of units: \nstdout: %s\nstder: %s\nerr: %v", stdout, stderr, err)
+		}
+		units = append(units, unit)
 	}
 
 	// make sure that all unit files will show up
-	listUnitStates, err = cluster.WaitForNUnitFiles(m, 50)
+	_, err = cluster.WaitForNUnitFiles(m, 20)
 	if err != nil {
 		t.Fatal("Failed to run list-unit-files: %v", err)
 	}
 
+	stdout, _, err := cluster.Fleetctl(m, "list-unit-files", "--no-legend", "--fields", "unit")
+	if err != nil {
+		t.Fatal("Failed to run list-unit-files: %v", err)
+	}
+
+	outUnits := strings.Split(strings.TrimSpace(stdout), "\n")
+
 	var sortable sort.StringSlice
 	for _, name := range units {
-		sortable = append(sortable, name)
+		n := strings.Replace(name, "fixtures/units/", "", 1)
+		sortable = append(sortable, n)
 	}
 	sortable.Sort()
 
-	var inUnits []strings
-	var outUnits []strings
+	var inUnits []string
 	for _, name := range sortable {
 		inUnits = append(inUnits, name)
 	}
 
-	for name, _ := range listUnitStates {
-		outUnits = append(outUnits, name)
-	}
-
 	if !reflect.DeepEqual(inUnits, outUnits) {
 		t.Fatalf("Failed to get a sorted list of units from list-unit-files")
-	}
-
-	// destroy the units
-	if _, _, err := cluster.Fleetctl(m, "destroy", units...); err != nil {
-		t.Fatalf("Failed to destroy unit: %v", err)
-	}
-
-	// wait until the unit gets destroyed up to 15 seconds
-	listUnitStates, err = cluster.WaitForNUnitFiles(m, 0)
-	if err != nil {
-		t.Fatalf("Failed to run list-unit-files: %v", err)
-	}
-	if len(listUnitStates) != 0 {
-		t.Fatalf("Expected nil unit file list, got %v", listUnitStates)
 	}
 }
