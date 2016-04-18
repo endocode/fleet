@@ -18,6 +18,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -57,6 +58,35 @@ func newSSHForwardingClient(client *gossh.Client, agentForwarding bool) (*SSHFor
 	return &SSHForwardingClient{agentForwarding, client, false}, nil
 }
 
+type InteruptReader struct {
+	r        io.Reader
+	interupt chan int
+}
+
+func NewInteruptReader(r io.Reader) InteruptReader {
+	return InteruptReader{
+		r,
+		make(chan int),
+	}
+}
+
+func (r InteruptReader) Read(p []byte) (n int, err error) {
+	if r.r == nil {
+		return 0, io.EOF
+	}
+	select {
+	case <-r.interupt:
+		return r.r.Read(p)
+	default:
+		r.r = nil
+		return 0, io.EOF
+	}
+}
+
+func (r InteruptReader) Cancel() {
+	r.interupt <- 0
+}
+
 // makeSession initializes a gossh.Session connected to the invoking process's stdout/stderr/stdout.
 // If the invoking session is a terminal, a TTY will be requested for the SSH session.
 // It returns a gossh.Session, a finalizing function used to clean up after the session terminates,
@@ -72,7 +102,8 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
-	session.Stdin = os.Stdin
+	sshStdin, err := session.StdinPipe()
+	stdinReader := NewInteruptReader(os.Stdin)
 
 	modes := gossh.TerminalModes{
 		gossh.ECHO:          1,     // enable echoing
@@ -91,8 +122,12 @@ func makeSession(client *SSHForwardingClient) (session *gossh.Session, finalize 
 			return
 		}
 
+		go io.Copy(sshStdin, stdinReader)
+
 		finalize = func() {
+			stdinReader.Cancel()
 			session.Close()
+			terminal.Write("\r\n")
 			terminal.Restore(fd, oldState)
 		}
 
