@@ -17,6 +17,7 @@ package functional
 import (
 	"io/ioutil"
 	"path"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -402,5 +403,76 @@ func TestUnitStatus(t *testing.T) {
 	if !strings.Contains(stdout, "Loaded: loaded") {
 		t.Errorf("Could not find expected string in status output:\n%s\nstderr:\n%s",
 			stdout, stderr)
+	}
+}
+
+// TestListUnitFilesOrder simply checks if "fleetctl list-unit-files" returns
+// an ordered list of units
+func TestListUnitFilesOrder(t *testing.T) {
+	cluster, err := platform.NewNspawnCluster("smoke")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cluster.Destroy()
+
+	m, err := cluster.CreateMember()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = cluster.WaitForNMachines(m, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Combine units
+	var units []string
+	for i := 1; i <= 50; i++ {
+		args = append(units, fmt.Sprint("fixtures/units/hello@%d.service", i))
+	}
+
+	stdout, stderr, err = cluster.Fleetctl(m, "start", units...)
+	if err != nil {
+		t.Fatalf("Failed to start a batch of units: \nstdout: %s\nstder: %s\nerr: %v", stdout, stderr, err)
+	}
+
+	// make sure that all unit files will show up
+	listUnitStates, err = cluster.WaitForNUnitFiles(m, 50)
+	if err != nil {
+		t.Fatal("Failed to run list-unit-files: %v", err)
+	}
+
+	var sortable sort.StringSlice
+	for _, name := range units {
+		sortable = append(sortable, name)
+	}
+	sortable.Sort()
+
+	var inUnits []strings
+	var outUnits []strings
+	for _, name := range sortable {
+		inUnits = append(inUnits, name)
+	}
+
+	for name, _ := range listUnitStates {
+		outUnits = append(outUnits, name)
+	}
+
+	if !reflect.DeepEqual(inUnits, outUnits) {
+		t.Fatalf("Failed to get a sorted list of units from list-unit-files")
+	}
+
+	// destroy the units
+	if _, _, err := cluster.Fleetctl(m, "destroy", units...); err != nil {
+		t.Fatalf("Failed to destroy unit: %v", err)
+	}
+
+	// wait until the unit gets destroyed up to 15 seconds
+	listUnitStates, err = cluster.WaitForNUnitFiles(m, 0)
+	if err != nil {
+		t.Fatalf("Failed to run list-unit-files: %v", err)
+	}
+	if len(listUnitStates) != 0 {
+		t.Fatalf("Expected nil unit file list, got %v", listUnitStates)
 	}
 }
