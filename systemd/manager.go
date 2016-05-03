@@ -156,6 +156,26 @@ func (m *systemdUnitManager) GetUnitState(name string) (*unit.UnitState, error) 
 	return us, nil
 }
 
+func (m *systemdUnitManager) getUnitsStates(units []string) ([](*unit.UnitState), error) {
+	infos, err := m.systemd.GetUnitsStates(units)
+	if err != nil {
+		return nil, err
+	}
+
+	var unitsStates [](*unit.UnitState)
+
+	for _, info := range infos {
+		unitsStates = append(unitsStates, &unit.UnitState{
+                        LoadState:   info.LoadState,
+                        ActiveState: info.ActiveState,
+                        SubState:    info.SubState,
+                        UnitName:    info.Name,
+                })
+	}
+
+	return unitsStates, nil
+}
+
 func (m *systemdUnitManager) getUnitState(name string) (*unit.UnitState, error) {
 	info, err := m.systemd.GetUnitProperties(name)
 	if err != nil {
@@ -223,19 +243,39 @@ func (m *systemdUnitManager) GetUnitStates(filter pkg.Set) (map[string]*unit.Uni
 
 	// grab data on subscribed units that didn't show up in ListUnits, most
 	// likely due to being inactive
+	var inactiveUnits []string
 	for _, name := range filter.Values() {
-		if _, ok := states[name]; ok {
-			continue
+		if _, ok := states[name]; !ok {
+			inactiveUnits = append(inactiveUnits, name)
 		}
+	}
 
-		us, err := m.getUnitState(name)
+	if len(inactiveUnits) > 0 {
+		unitsStates, err := m.getUnitsStates(inactiveUnits)
 		if err != nil {
-			return nil, err
+			log.Debugf("GetUnitsStates method is not supported, fallback to getUnitState function: %v", err)
+			for _, name := range filter.Values() {
+				if _, ok := states[name]; ok {
+					continue
+				}
+
+				us, err := m.getUnitState(name)
+				if err != nil {
+					return nil, err
+				}
+				if h, ok := m.hashes[name]; ok {
+					us.UnitHash = h.String()
+				}
+				states[name] = us
+			}
+		} else {
+			for _, us := range unitsStates {
+				if h, ok := m.hashes[us.UnitName]; ok {
+					us.UnitHash = h.String()
+				}
+				states[us.UnitName] = us
+			}
 		}
-		if h, ok := m.hashes[name]; ok {
-			us.UnitHash = h.String()
-		}
-		states[name] = us
 	}
 
 	return states, nil
